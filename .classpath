@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/GUIParsing/ParserVersion"/>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/GUIParsing/TokenMgrVersion"/>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/Interpreter"/>
+	<classpathentry excluding="1.5/" kind="src" path="javacc-6.0/javacc-6.0/examples/JavaGrammars"/>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/JavaGrammars/1.5"/>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/JJTreeExamples"/>
+	<classpathentry excluding="input/" kind="src" path="javacc-6.0/javacc-6.0/examples/Obfuscator"/>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/Obfuscator/input"/>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/Transformer"/>
+	<classpathentry kind="src" path="javacc-6.0/javacc-6.0/examples/VTransformer"/>
+	<classpathentry kind="lib" path="javacc-6.0/javacc-6.0/bin/lib/javacc.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

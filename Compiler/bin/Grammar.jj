@@ -1,0 +1,165 @@
+/**
+ * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
+ */options{  JDK_VERSION = "1.5";  static = true;}PARSER_BEGIN(EG1)
+import java.util.*;
+
+public class EG1{
+  private static Map<String, Integer> symbolTable = new HashMap<String, Integer>();  public static void main(String args []) throws ParseException  {    EG1 parser = new EG1(System.in);    while (true)    {      System.out.println("Reading from standard input...");      System.out.print("$ > ");      try      {        if (EG1.program())        {          System.out.println("OK.");        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        EG1.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(EG1)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* CHARACTERS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >
+| < MOD : "%" >
+| < NOT : "!" >
+| < EQ : "=" >
+| < DEQ : "==" >
+| < LBRACE : "{" >
+| < RBRACE : "}" >
+| < LPAREN : "(" >
+| < RPAREN : ")" >
+| < LT : "<" >
+| < GT : ">" >
+| < QMARK : "?" >
+| < OR : "|" >
+| < AND : "&" >
+| < COLON : ":" >
+| < SEMI : ";" >}
+
+TOKEN : /* RESERVED WORDS */
+{  < BREAK : "break" >
+| < CONT : "continue" >
+| < ELSE : "else" >
+| < IF : "if" >
+| < RET : "return" >
+| < WHILE : "while" >
+}TOKEN :{
+  < #LETTER : ["A"-"z"] >
+| < #DIGIT : [ "0"-"9" ] >
+| < INT : (< DIGIT >)+ > 
+| < ID : < LETTER >(< LETTER > | < DIGIT >)* >}
+boolean program() :
+{}
+{	< LBRACE > (statement())* < RBRACE >
+	{		return true;
+	}
+}
+
+void statement() :
+{}
+{
+	compound_statement()
+|	< WHILE > test() statement()
+|	< IF > test() statement() [ < ELSE > statement() ]
+| 	expression() < SEMI >
+|	< BREAK > < SEMI >
+|	< RET > expression() < SEMI >
+|	< CONT > < SEMI >
+|	< SEMI >}
+
+void compound_statement() :
+{}
+{
+	< LBRACE > statement_list() < RBRACE >
+}
+
+void statement_list() :
+{}{
+	statement() [ statement_list() ]}
+
+void test() :
+{}
+{
+	< LPAREN > expression() < RPAREN >}
+
+int expression() :
+{
+  Token id = getToken(1);
+  int val;
+}{
+  	LOOKAHEAD(2)
+  	< ID > < EQ > val=expression()
+  	{  		symbolTable.put(id.image, Integer.valueOf(val));
+  		System.out.println(id + " stored in symbol table with value of: " + val);
+  		return val;  	}
+|	condition()
+	{
+		return 0;	}
+}
+
+void condition() :
+{}{	disjunction() [ < QMARK > expression() < COLON > condition() ]
+}
+
+void disjunction() :
+{}{
+  	conjunction() disjunctionP()}
+
+void disjunctionP() :
+{}{
+	[ < OR > conjunction() disjunctionP() ]}
+
+void conjunction() :
+{}
+{
+	comparison() conjunctionP()}
+
+void conjunctionP() :
+{}{
+	[ < AND > comparison() conjunctionP() ]}
+void comparison() :
+{}
+{	relation() [ < DEQ > relation() ]
+}
+
+void relation() :
+{}{	sum() [ rel_op() sum() ]
+}  
+void sum() :
+{}{
+	term() sumP()
+}
+
+void sumP() :
+{}{
+	[ add_op() term() sumP() ]}
+
+void term() :
+{}
+{	factor() termP()
+}
+
+void termP() :
+{}
+{	[ mul_op() factor() termP() ]
+}
+
+void factor() :
+{}
+{	[ unary_op() ] primary()
+}
+
+void primary() :
+{
+  Token token = getToken(1);
+}
+{	< ID >
+|	< INT >
+| 	< LPAREN > expression() < RPAREN >
+}
+
+void rel_op() :
+{}{
+	< LT >
+| 	< GT >}
+
+void mul_op() :
+{}{
+	< MULTIPLY >
+| 	< DIVIDE >
+| 	< MOD >}
+
+void add_op() :
+{}{
+	< PLUS >
+|	< MINUS >}
+
+void unary_op() :
+{}{
+	< MINUS >
+|	< NOT >}
