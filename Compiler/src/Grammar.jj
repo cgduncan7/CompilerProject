@@ -28,6 +28,7 @@ TOKEN : /* RESERVED WORDS */
 | < IF : "if" >
 | < RET : "return" >
 | < WHILE : "while" >
+| < FN : "function" >
 }TOKEN :{
   < #LETTER : ["A"-"z"] >
 | < #DIGIT : [ "0"-"9" ] >
@@ -35,10 +36,14 @@ TOKEN : /* RESERVED WORDS */
 | < ID : < LETTER >(< LETTER > | < DIGIT >)* >}
 boolean program() :
 {}
-{	< LBRACE > (statement())* < RBRACE >
+{	< LBRACE > (function())* (statement())* < RBRACE >
 	{		return true;
 	}
 }
+
+void function() :
+{}{
+	< FN > < ID > < LPAREN > [ < ID > ] < RPAREN > < LBRACE > ( statement() )* < RBRACE >}
 
 void statement() :
 {}
@@ -46,11 +51,17 @@ void statement() :
 	compound_statement()
 |	< WHILE > test() statement()
 |	< IF > test() statement() [ < ELSE > statement() ]
-| 	expression() < SEMI >
+|	LOOKAHEAD(2)
+	expression() < SEMI >
 |	< BREAK > < SEMI >
 |	< RET > expression() < SEMI >
 |	< CONT > < SEMI >
-|	< SEMI >}
+|	< SEMI >
+| 	fn_call() < SEMI >}
+
+void fn_call() :
+{}{
+  	< ID > < LPAREN > [ < ID > | < INT > ] < RPAREN >}
 
 void compound_statement() :
 {}
