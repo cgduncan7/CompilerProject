@@ -51,17 +51,12 @@ void statement() :
 	compound_statement()
 |	< WHILE > test() statement()
 |	< IF > test() statement() [ < ELSE > statement() ]
-|	LOOKAHEAD(2)
+|	/*LOOKAHEAD(2)*/
 	expression() < SEMI >
 |	< BREAK > < SEMI >
 |	< RET > expression() < SEMI >
 |	< CONT > < SEMI >
-|	< SEMI >
-| 	fn_call() < SEMI >}
-
-void fn_call() :
-{}{
-  	< ID > < LPAREN > [ < ID > | < INT > ] < RPAREN >}
+|	< SEMI >}
 
 void compound_statement() :
 {}
@@ -88,9 +83,15 @@ int expression() :
   	{  		symbolTable.put(id.image, Integer.valueOf(val));
   		System.out.println(id + " stored in symbol table with value of: " + val);
   		return val;  	}
-|	condition()
+|	fn_call()
 	{
 		return 0;	}
+}
+
+void fn_call() :
+{}
+{
+  	condition() [ < LPAREN > [ < ID > | < INT > ] < RPAREN > ]
 }
 
 void condition() :
