@@ -2,12 +2,20 @@
 import java.util.*;
 
 public class EG1 implements EG1Constants {
-  private static Map<String, Integer> symbolTable = new HashMap<String, Integer>();
+  static int tempCounter;
+  private static VerboseStack stack, breakStack, contStack;
+  private static ArrayList<Quad> quadList;
+
   public static void main(String args []) throws ParseException
   {
     EG1 parser = new EG1(System.in);
     while (true)
     {
+      stack = new VerboseStack();
+      breakStack = new VerboseStack();
+      contStack = new VerboseStack();
+      quadList = new ArrayList<Quad>();
+      tempCounter = 1;
       System.out.println("Reading from standard input...");
       System.out.print("$ > ");
       try
@@ -37,6 +45,18 @@ public class EG1 implements EG1Constants {
     label_1:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case FN:
+        ;
+        break;
+      default:
+        jj_la1[0] = jj_gen;
+        break label_1;
+      }
+      function();
+    }
+    label_2:
+    while (true) {
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case MINUS:
       case NOT:
       case LBRACE:
@@ -52,39 +72,128 @@ public class EG1 implements EG1Constants {
         ;
         break;
       default:
-        jj_la1[0] = jj_gen;
-        break label_1;
+        jj_la1[1] = jj_gen;
+        break label_2;
       }
       statement();
     }
     jj_consume_token(RBRACE);
-                {if (true) return true;}
+          System.out.println("- QuadList -");
+          int i = 0;
+          for (Quad q : quadList)
+          {
+                System.out.println(i++ + ") " + q.toString());
+          }
+
+          System.out.println("- Stack -");
+          for (Object o : stack)
+          {
+                System.out.println(o);
+          }
+
+          if (stack.size() == 0)
+                System.out.println("empty");
+
+          {if (true) return true;}
     throw new Error("Missing return statement in function");
   }
 
+  static final public void function() throws ParseException {
+    jj_consume_token(FN);
+    jj_consume_token(ID);
+    jj_consume_token(LPAREN);
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case ID:
+      jj_consume_token(ID);
+      break;
+    default:
+      jj_la1[2] = jj_gen;
+      ;
+    }
+    jj_consume_token(RPAREN);
+    jj_consume_token(LBRACE);
+    label_3:
+    while (true) {
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case MINUS:
+      case NOT:
+      case LBRACE:
+      case LPAREN:
+      case SEMI:
+      case BREAK:
+      case CONT:
+      case IF:
+      case RET:
+      case WHILE:
+      case INT:
+      case ID:
+        ;
+        break;
+      default:
+        jj_la1[3] = jj_gen;
+        break label_3;
+      }
+      statement();
+    }
+    jj_consume_token(RBRACE);
+  }
+
   static final public void statement() throws ParseException {
+  int nextQuad;
+  Object o, p;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case LBRACE:
       compound_statement();
       break;
     case WHILE:
       jj_consume_token(WHILE);
+          stack.push(quadList.size());
+          contStack.push(quadList.size());
       test();
+          o = stack.pop();
+          stack.push(quadList.size());
+          breakStack.push(quadList.size());
+          quadList.add(new Quad("jeqz", o.toString(), null, "-1"));
       statement();
+          o = stack.pop();
+          p = stack.pop();
+          quadList.add(new Quad("jump", null, null, p.toString()));
+          int whileJump = quadList.size();
+
+          int x = (int) breakStack.pop();
+          while (x != -1)
+          {
+            Quad q = quadList.get(x);
+            x = Integer.parseInt(q.getDestination());
+            q.setDestination(whileJump);
+          }
+
+          contStack.pop();
       break;
     case IF:
       jj_consume_token(IF);
       test();
+          nextQuad = quadList.size();
+          o = stack.pop();
+          quadList.add(new Quad("jeqz", o.toString(), null, null));
+          stack.push(nextQuad);
       statement();
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case ELSE:
         jj_consume_token(ELSE);
+          nextQuad = quadList.size();
+          quadList.add(new Quad("jump", null, null, null));
+          o = stack.pop();
+          quadList.get((int) o).setDestination((nextQuad+1) + "");
+          stack.push(nextQuad);
         statement();
         break;
       default:
-        jj_la1[1] = jj_gen;
+        jj_la1[4] = jj_gen;
         ;
       }
+          o = stack.pop();
+          quadList.get((int) o).setDestination(quadList.size() + "");
       break;
     case MINUS:
     case NOT:
@@ -93,25 +202,34 @@ public class EG1 implements EG1Constants {
     case ID:
       expression();
       jj_consume_token(SEMI);
+          Object l = stack.pop(); //clean off leftover stack
+
       break;
     case BREAK:
       jj_consume_token(BREAK);
       jj_consume_token(SEMI);
+          Object nq = breakStack.pop();
+          breakStack.push(quadList.size());
+          quadList.add(new Quad("jump",null,null,nq.toString()));
       break;
     case RET:
       jj_consume_token(RET);
       expression();
       jj_consume_token(SEMI);
+          quadList.add(new Quad("RTS", stack.pop().toString(), null, null));
       break;
     case CONT:
       jj_consume_token(CONT);
       jj_consume_token(SEMI);
+          Object loc = contStack.pop();
+          contStack.push(loc);
+          quadList.add(new Quad("jump", null, null, loc.toString()));
       break;
     case SEMI:
       jj_consume_token(SEMI);
       break;
     default:
-      jj_la1[2] = jj_gen;
+      jj_la1[5] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -141,7 +259,7 @@ public class EG1 implements EG1Constants {
       statement_list();
       break;
     default:
-      jj_la1[3] = jj_gen;
+      jj_la1[6] = jj_gen;
       ;
     }
   }
@@ -150,18 +268,19 @@ public class EG1 implements EG1Constants {
     jj_consume_token(LPAREN);
     expression();
     jj_consume_token(RPAREN);
+
   }
 
-  static final public int expression() throws ParseException {
-  Token id = getToken(1);
-  int val;
+  static final public void expression() throws ParseException {
     if (jj_2_1(2)) {
       jj_consume_token(ID);
+          stack.push(getToken(0).image);
+          stack.push(getToken(0).image);
       jj_consume_token(EQ);
-      val = expression();
-                symbolTable.put(id.image, Integer.valueOf(val));
-                System.out.println(id + " stored in symbol table with value of: " + val);
-                {if (true) return val;}
+      expression();
+          Object exp = stack.pop();
+          Object des = stack.pop();
+          quadList.add(new Quad("copy", exp.toString(), "", des.toString()));
     } else {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case MINUS:
@@ -169,16 +288,48 @@ public class EG1 implements EG1Constants {
       case LPAREN:
       case INT:
       case ID:
-        condition();
-                {if (true) return 0;}
+        fn_call();
+
         break;
       default:
-        jj_la1[4] = jj_gen;
+        jj_la1[7] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
     }
-    throw new Error("Missing return statement in function");
+  }
+
+  static final public void fn_call() throws ParseException {
+    condition();
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case LPAREN:
+      jj_consume_token(LPAREN);
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case INT:
+      case ID:
+        switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+        case ID:
+          jj_consume_token(ID);
+          break;
+        case INT:
+          jj_consume_token(INT);
+          break;
+        default:
+          jj_la1[8] = jj_gen;
+          jj_consume_token(-1);
+          throw new ParseException();
+        }
+        break;
+      default:
+        jj_la1[9] = jj_gen;
+        ;
+      }
+      jj_consume_token(RPAREN);
+      break;
+    default:
+      jj_la1[10] = jj_gen;
+      ;
+    }
   }
 
   static final public void condition() throws ParseException {
@@ -186,12 +337,34 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case QMARK:
       jj_consume_token(QMARK);
+          Object o = stack.pop();
+          int nq1 = quadList.size();
+          quadList.add(new Quad("jeqz", o.toString(), null, null));
+          stack.push(nq1);
       expression();
+          Object expr = stack.pop();
+          Object nq = stack.pop();
+          Object var = stack.pop();
+          quadList.add(new Quad("copy", expr.toString(), null, var.toString()));
+          stack.push(var);
+          stack.push(nq);
       jj_consume_token(COLON);
+          int nq2 = quadList.size();
+          quadList.add(new Quad("jump", null, null, null));
+          Object loc = stack.pop();
+          quadList.get((int) loc).setDestination(quadList.size());
+          stack.push(nq2);
       condition();
+          Object b = stack.pop();
+          Object a = stack.pop();
+          Object c = stack.pop();
+          //quadList.add(new Quad("copy", b.toString(), null, c.toString()));
+          quadList.get((int) a).setDestination(quadList.size()+1);
+          stack.push(c);
+          stack.push(b);
       break;
     default:
-      jj_la1[5] = jj_gen;
+      jj_la1[11] = jj_gen;
       ;
     }
   }
@@ -206,10 +379,14 @@ public class EG1 implements EG1Constants {
     case OR:
       jj_consume_token(OR);
       conjunction();
+          Object a = stack.pop();
+          Object b = stack.pop();
+          quadList.add(new Quad("|", a.toString(), b.toString(), "temp"+tempCounter));
+          stack.push("temp"+tempCounter++);
       disjunctionP();
       break;
     default:
-      jj_la1[6] = jj_gen;
+      jj_la1[12] = jj_gen;
       ;
     }
   }
@@ -224,10 +401,14 @@ public class EG1 implements EG1Constants {
     case AND:
       jj_consume_token(AND);
       comparison();
+          Object a = stack.pop();
+          Object b = stack.pop();
+          quadList.add(new Quad("&", a.toString(), b.toString(), "temp"+tempCounter));
+          stack.push("temp"+tempCounter++);
       conjunctionP();
       break;
     default:
-      jj_la1[7] = jj_gen;
+      jj_la1[13] = jj_gen;
       ;
     }
   }
@@ -238,9 +419,13 @@ public class EG1 implements EG1Constants {
     case DEQ:
       jj_consume_token(DEQ);
       relation();
+          Object a = stack.pop();
+          Object b = stack.pop();
+          quadList.add(new Quad("==", a.toString(), b.toString(), "temp"+tempCounter));
+          stack.push("temp"+tempCounter++);
       break;
     default:
-      jj_la1[8] = jj_gen;
+      jj_la1[14] = jj_gen;
       ;
     }
   }
@@ -252,73 +437,119 @@ public class EG1 implements EG1Constants {
     case GT:
       rel_op();
       sum();
+          Object s1 = stack.pop();
+          Object op = stack.pop();
+          Object s2 = stack.pop();
+          quadList.add(new Quad(op.toString(), s2.toString(), s1.toString(), "temp"+tempCounter));
+          stack.push("temp"+tempCounter);
+          tempCounter++;
       break;
     default:
-      jj_la1[9] = jj_gen;
+      jj_la1[15] = jj_gen;
       ;
     }
   }
 
   static final public void sum() throws ParseException {
     term();
-    sumP();
+    label_4:
+    while (true) {
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case PLUS:
+      case MINUS:
+        ;
+        break;
+      default:
+        jj_la1[16] = jj_gen;
+        break label_4;
+      }
+      sumP();
+    }
   }
 
   static final public void sumP() throws ParseException {
-    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case PLUS:
-    case MINUS:
-      add_op();
-      term();
-      sumP();
-      break;
-    default:
-      jj_la1[10] = jj_gen;
-      ;
-    }
+    add_op();
+    term();
+          Object op1 = stack.pop();
+          String operation = stack.pop().toString();
+          Object op2 = stack.pop();
+
+          quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
+          stack.push("temp" + tempCounter);
+          tempCounter++;
   }
 
   static final public void term() throws ParseException {
     factor();
-    termP();
-  }
-
-  static final public void termP() throws ParseException {
-    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case MULTIPLY:
-    case DIVIDE:
-    case MOD:
-      mul_op();
-      factor();
+    label_5:
+    while (true) {
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case MULTIPLY:
+      case DIVIDE:
+      case MOD:
+        ;
+        break;
+      default:
+        jj_la1[17] = jj_gen;
+        break label_5;
+      }
       termP();
-      break;
-    default:
-      jj_la1[11] = jj_gen;
-      ;
     }
   }
 
+  static final public void termP() throws ParseException {
+    mul_op();
+    factor();
+          Object op1 = stack.pop();
+          String operation = stack.pop().toString();
+          Object op2 = stack.pop();
+
+          quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
+          stack.push("temp"+tempCounter);
+          tempCounter++;
+  }
+
   static final public void factor() throws ParseException {
+  Object op = null;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case MINUS:
     case NOT:
       unary_op();
+      primary();
+          Object p = stack.pop();
+          Object u = stack.pop();
+          if ("!".equals(u.toString()))
+          {
+                quadList.add(new Quad("!", p.toString(), null, "temp"+tempCounter));
+                stack.push("temp"+tempCounter++);
+          }
+          else if ("-".equals(u.toString()))
+          {
+            quadList.add(new Quad("u-", p.toString(), null, "temp"+tempCounter));
+            stack.push("temp"+tempCounter++);
+          }
+      break;
+    case LPAREN:
+    case INT:
+    case ID:
+      primary();
       break;
     default:
-      jj_la1[12] = jj_gen;
-      ;
+      jj_la1[18] = jj_gen;
+      jj_consume_token(-1);
+      throw new ParseException();
     }
-    primary();
   }
 
   static final public void primary() throws ParseException {
-  Token token = getToken(1);
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case ID:
       jj_consume_token(ID);
+          stack.push(getToken(0).image);
       break;
     case INT:
       jj_consume_token(INT);
+          stack.push(Integer.valueOf(getToken(0).image));
       break;
     case LPAREN:
       jj_consume_token(LPAREN);
@@ -326,7 +557,7 @@ public class EG1 implements EG1Constants {
       jj_consume_token(RPAREN);
       break;
     default:
-      jj_la1[13] = jj_gen;
+      jj_la1[19] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -336,12 +567,14 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case LT:
       jj_consume_token(LT);
+          stack.push("<");
       break;
     case GT:
       jj_consume_token(GT);
+          stack.push(">");
       break;
     default:
-      jj_la1[14] = jj_gen;
+      jj_la1[20] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -351,15 +584,18 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case MULTIPLY:
       jj_consume_token(MULTIPLY);
+          stack.push("*");
       break;
     case DIVIDE:
       jj_consume_token(DIVIDE);
+          stack.push("/");
       break;
     case MOD:
       jj_consume_token(MOD);
+          stack.push("%");
       break;
     default:
-      jj_la1[15] = jj_gen;
+      jj_la1[21] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -369,12 +605,14 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case PLUS:
       jj_consume_token(PLUS);
+          stack.push("+");
       break;
     case MINUS:
       jj_consume_token(MINUS);
+          stack.push("-");
       break;
     default:
-      jj_la1[16] = jj_gen;
+      jj_la1[22] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -384,12 +622,14 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case MINUS:
       jj_consume_token(MINUS);
+          stack.push("-");
       break;
     case NOT:
       jj_consume_token(NOT);
+          stack.push("!");
       break;
     default:
-      jj_la1[17] = jj_gen;
+      jj_la1[23] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -420,7 +660,7 @@ public class EG1 implements EG1Constants {
   static private Token jj_scanpos, jj_lastpos;
   static private int jj_la;
   static private int jj_gen;
-  static final private int[] jj_la1 = new int[18];
+  static final private int[] jj_la1 = new int[24];
   static private int[] jj_la1_0;
   static private int[] jj_la1_1;
   static {
@@ -428,10 +668,10 @@ public class EG1 implements EG1Constants {
       jj_la1_init_1();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0x3b80a440,0x4000000,0x3b80a440,0x3b80a440,0x8440,0x80000,0x100000,0x200000,0x1000,0x60000,0x60,0x380,0x440,0x8000,0x60000,0x380,0x60,0x440,};
+      jj_la1_0 = new int[] {0x40000000,0x3b80a440,0x0,0x3b80a440,0x4000000,0x3b80a440,0x3b80a440,0x8440,0x0,0x0,0x8000,0x80000,0x100000,0x200000,0x1000,0x60000,0x60,0x380,0x8440,0x8000,0x60000,0x380,0x60,0x440,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0x3,0x0,0x3,0x3,0x3,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x3,0x0,0x0,0x0,0x0,};
+      jj_la1_1 = new int[] {0x0,0x6,0x4,0x6,0x0,0x6,0x6,0x6,0x6,0x6,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x6,0x6,0x0,0x0,0x0,0x0,};
    }
   static final private JJCalls[] jj_2_rtns = new JJCalls[1];
   static private boolean jj_rescan = false;
@@ -455,7 +695,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 18; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -470,7 +710,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 18; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -488,7 +728,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 18; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -499,7 +739,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 18; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -516,7 +756,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 18; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -526,7 +766,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 18; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -638,12 +878,12 @@ public class EG1 implements EG1Constants {
   /** Generate ParseException. */
   static public ParseException generateParseException() {
     jj_expentries.clear();
-    boolean[] la1tokens = new boolean[34];
+    boolean[] la1tokens = new boolean[35];
     if (jj_kind >= 0) {
       la1tokens[jj_kind] = true;
       jj_kind = -1;
     }
-    for (int i = 0; i < 18; i++) {
+    for (int i = 0; i < 24; i++) {
       if (jj_la1[i] == jj_gen) {
         for (int j = 0; j < 32; j++) {
           if ((jj_la1_0[i] & (1<<j)) != 0) {
@@ -655,7 +895,7 @@ public class EG1 implements EG1Constants {
         }
       }
     }
-    for (int i = 0; i < 34; i++) {
+    for (int i = 0; i < 35; i++) {
       if (la1tokens[i]) {
         jj_expentry = new int[1];
         jj_expentry[0] = i;

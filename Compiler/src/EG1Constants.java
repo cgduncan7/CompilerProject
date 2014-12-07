@@ -59,13 +59,15 @@ public interface EG1Constants {
   /** RegularExpression Id. */
   int WHILE = 29;
   /** RegularExpression Id. */
-  int LETTER = 30;
+  int FN = 30;
   /** RegularExpression Id. */
-  int DIGIT = 31;
+  int LETTER = 31;
   /** RegularExpression Id. */
-  int INT = 32;
+  int DIGIT = 32;
   /** RegularExpression Id. */
-  int ID = 33;
+  int INT = 33;
+  /** RegularExpression Id. */
+  int ID = 34;
 
   /** Lexical state. */
   int DEFAULT = 0;
@@ -102,6 +104,7 @@ public interface EG1Constants {
     "\"if\"",
     "\"return\"",
     "\"while\"",
+    "\"function\"",
     "<LETTER>",
     "<DIGIT>",
     "<INT>",

@@ -1,14 +1,17 @@
 /**
  * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
- */options{  JDK_VERSION = "1.5";  static = true;}PARSER_BEGIN(EG1)
+ */options{  JDK_VERSION = "1.5";  static = true;
+  //debug_parser = true;}PARSER_BEGIN(EG1)
 import java.util.*;
 
 public class EG1{
   static int tempCounter;
-  private static VerboseStack stack;
+  private static VerboseStack stack, breakStack, contStack;
   private static ArrayList<Quad> quadList;
     public static void main(String args []) throws ParseException  {    EG1 parser = new EG1(System.in);    while (true)    {
       stack = new VerboseStack();
+      breakStack = new VerboseStack();
+      contStack = new VerboseStack();
       quadList = new ArrayList<Quad>();
       tempCounter = 1;      System.out.println("Reading from standard input...");      System.out.print("$ > ");      try      {        if (EG1.program())        {          System.out.println("OK.");        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        EG1.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(EG1)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* CHARACTERS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >
 | < MOD : "%" >
@@ -74,17 +77,28 @@ void statement() :
 {
 	compound_statement()
 |	< WHILE >	{
-	  stack.push(quadList.size());	}
+	  stack.push(quadList.size());
+	  contStack.push(quadList.size());	}
 	test()	{
 	  o = stack.pop();
 	  stack.push(quadList.size());
-	  quadList.add(new Quad("jeqz", o.toString(), null, null));	}
+	  breakStack.push(quadList.size());
+	  quadList.add(new Quad("jeqz", o.toString(), null, "-1"));	}
 	statement()
 	{
 	  o = stack.pop();
 	  p = stack.pop();
 	  quadList.add(new Quad("jump", null, null, p.toString()));
-	  quadList.get((int) o).setDestination(quadList.size());	}
+	  int whileJump = quadList.size();
+
+	  int x = (int) breakStack.pop();
+	  while (x != -1)
+	  {
+	    Quad q = quadList.get(x);
+	    x = Integer.parseInt(q.getDestination());
+	    q.setDestination(whileJump);	  }
+
+	  contStack.pop();	}
 |	< IF > test()	{
 	  nextQuad = quadList.size();
 	  o = stack.pop();
@@ -94,7 +108,7 @@ void statement() :
 	  nextQuad = quadList.size();
 	  quadList.add(new Quad("jump", null, null, null));
 	  o = stack.pop();
-	  quadList.get((int) o).setDestination(nextQuad + "");
+	  quadList.get((int) o).setDestination((nextQuad+1) + "");
 	  stack.push(nextQuad);	}
 	statement() ]
 	{
@@ -102,11 +116,21 @@ void statement() :
 	  quadList.get((int) o).setDestination(quadList.size() + "");	}
 |	expression() < SEMI >
 	{
-	  stack.pop(); //clean off leftover stack
+	  Object l = stack.pop(); //clean off leftover stack
 	}
 |	< BREAK > < SEMI >
+	{
+	  Object nq = breakStack.pop();
+	  breakStack.push(quadList.size());
+	  quadList.add(new Quad("jump",null,null,nq.toString()));	}
 |	< RET > expression() < SEMI >
+	{
+	  quadList.add(new Quad("RTS", stack.pop().toString(), null, null));	}
 |	< CONT > < SEMI >
+	{
+	  Object loc = contStack.pop();
+	  contStack.push(loc);
+	  quadList.add(new Quad("jump", null, null, loc.toString())); 	}
 |	< SEMI >}
 
 void compound_statement() :
@@ -152,7 +176,37 @@ void fn_call() :
 }
 
 void condition() :
-{}{	disjunction() [ < QMARK > expression() < COLON > condition() ]
+{}{	disjunction() [ < QMARK >
+	{
+	  Object o = stack.pop();
+	  int nq1 = quadList.size();
+	  quadList.add(new Quad("jeqz", o.toString(), null, null));
+	  stack.push(nq1);	}
+	expression()
+	{
+	  Object expr = stack.pop();
+	  Object nq = stack.pop();
+	  Object var = stack.pop();
+	  quadList.add(new Quad("copy", expr.toString(), null, var.toString()));
+	  stack.push(var);
+	  stack.push(nq);	}
+	< COLON >
+	{
+	  int nq2 = quadList.size();
+	  quadList.add(new Quad("jump", null, null, null));
+	  Object loc = stack.pop();
+	  quadList.get((int) loc).setDestination(quadList.size());
+	  stack.push(nq2);	}
+	condition()
+	{
+	  Object b = stack.pop();
+	  Object a = stack.pop();
+	  Object c = stack.pop();
+	  //quadList.add(new Quad("copy", b.toString(), null, c.toString()));
+	  quadList.get((int) a).setDestination(quadList.size()+1);
+	  stack.push(c);
+	  stack.push(b);	}
+	]
 }
 
 void disjunction() :
@@ -161,7 +215,14 @@ void disjunction() :
 
 void disjunctionP() :
 {}{
-	[ < OR > conjunction() disjunctionP() ]}
+	[ < OR > conjunction()
+	{
+	  Object a = stack.pop();
+	  Object b = stack.pop();
+	  quadList.add(new Quad("|", a.toString(), b.toString(), "temp"+tempCounter));
+	  stack.push("temp"+tempCounter++);
+	}
+	disjunctionP() ]}
 
 void conjunction() :
 {}
@@ -179,7 +240,14 @@ void conjunctionP() :
 	conjunctionP() ]}
 void comparison() :
 {}
-{	relation() [ < DEQ > relation() ]
+{	relation() [ < DEQ > relation()
+	{
+	  Object a = stack.pop();
+	  Object b = stack.pop();
+	  quadList.add(new Quad("==", a.toString(), b.toString(), "temp"+tempCounter));
+	  stack.push("temp"+tempCounter++);
+	}
+	]
 }
 
 void relation() :
@@ -196,9 +264,6 @@ void relation() :
 void sum() :
 {}{
 	term() (sumP())*
-	{
-	  
-	}
 }
 
 void sumP() :
@@ -217,9 +282,6 @@ void sumP() :
 void term() :
 {}
 {	factor() (termP())*
-	{
-	  
-	}
 }
 
 void termP() :
