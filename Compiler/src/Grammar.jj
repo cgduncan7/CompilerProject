@@ -1,19 +1,24 @@
 /**
  * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
  */options{  JDK_VERSION = "1.5";  static = true;
-  //debug_parser = true;}PARSER_BEGIN(EG1)
+//  debug_parser = true;}PARSER_BEGIN(EG1)
 import java.util.*;
 
 public class EG1{
-  static int tempCounter;
+  static int tempCounter, symbolCounter, nestingLevel, offset;
   private static VerboseStack stack, breakStack, contStack;
   private static ArrayList<Quad> quadList;
+  private static ArrayList<Symbol> symbolTable;
     public static void main(String args []) throws ParseException  {    EG1 parser = new EG1(System.in);    while (true)    {
       stack = new VerboseStack();
       breakStack = new VerboseStack();
       contStack = new VerboseStack();
       quadList = new ArrayList<Quad>();
-      tempCounter = 1;      System.out.println("Reading from standard input...");      System.out.print("$ > ");      try      {        if (EG1.program())        {          System.out.println("OK.");        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        EG1.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(EG1)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* CHARACTERS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >
+      symbolTable = new ArrayList<Symbol>();
+      tempCounter = 1;
+      symbolCounter = 1;
+      nestingLevel = 0;
+      offset = 0;      System.out.println("Reading from standard input...");      System.out.print("$ > ");      try      {        if (EG1.program())        {          System.out.println("OK.");        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        EG1.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(EG1)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* CHARACTERS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >
 | < MOD : "%" >
 | < NOT : "!" >
 | < EQ : "=" >
@@ -60,14 +65,25 @@ boolean program() :
 
 	  if (stack.size() == 0)
 	  	System.out.println("empty");
+
+	  System.out.println("- Symbol Table -");
+	  for (Symbol s : symbolTable)
+	  {
+	    System.out.println(s.toString());
+	  }
 	  
 	  return true;
 	}
 }
 
 void function() :
-{}{
-	< FN > < ID > < LPAREN > [ < ID > ] < RPAREN > < LBRACE > ( statement() )* < RBRACE >}
+{
+  Token name;
+}{
+	< FN > name=< ID >
+	{
+	  symbolTable.add(new Symbol(name.image, "MAIN", 0, -1, -1, -1));	}
+	< LPAREN > [ < ID > ] < RPAREN > compound_statement()}
 
 void statement() :
 {
@@ -136,7 +152,13 @@ void statement() :
 void compound_statement() :
 {}
 {
-	< LBRACE > statement_list() < RBRACE >
+	< LBRACE >
+	{	  symbolTable.add(new Symbol("symbol"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
+	  offset = 0;
+	}
+	statement_list() < RBRACE >
+	{	  nestingLevel--;
+	}
 }
 
 void statement_list() :
@@ -157,7 +179,9 @@ void expression() :
   	< ID >
   	{
   	  stack.push(getToken(0).image);
-  	  stack.push(getToken(0).image);  	}
+  	  stack.push(getToken(0).image);
+  	  symbolTable.add(new Symbol(getToken(0).image, "block"+nestingLevel, nestingLevel, offset*4, -1, -1));
+  	  offset++;  	}
   	< EQ > expression()
   	{
   	  Object exp = stack.pop();
@@ -165,14 +189,35 @@ void expression() :
   	  quadList.add(new Quad("copy", exp.toString(), "", des.toString()));
   	}
 |	fn_call()
-	{
-	  	}
 }
 
 void fn_call() :
-{}
 {
-  	condition() [ < LPAREN > [ < ID > | < INT > ] < RPAREN > ]
+  Token id, fn;
+}
+{
+  	condition()
+  	{
+  	  fn = getToken(0);  	}
+  	[ < LPAREN > [ id=< ID >
+  	{	  for (Symbol s : symbolTable)
+	  {		if (id.image.equals(s.getName()))
+		{
+		  quadList.add(new Quad("push", id.image, null, "stack"));
+		  return;		}
+	  }
+  	}
+  	] < RPAREN > {
+	  for (Symbol s : symbolTable)
+	  {
+		if (fn.image.equals(s.getName()))
+		{
+		  quadList.add(new Quad("jsr", null, null, ""+s.getLocations()));
+		}
+	  }
+  	}
+  	]
+  	
 }
 
 void condition() :
