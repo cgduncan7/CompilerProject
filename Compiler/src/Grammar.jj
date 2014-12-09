@@ -9,12 +9,14 @@ public class EG1{
   private static VerboseStack stack, breakStack, contStack;
   private static ArrayList<Quad> quadList;
   private static ArrayList<Symbol> symbolTable;
+  private static ArrayList<Integer> basicBlockStarts;
     public static void main(String args []) throws ParseException  {    EG1 parser = new EG1(System.in);    while (true)    {
       stack = new VerboseStack();
       breakStack = new VerboseStack();
       contStack = new VerboseStack();
       quadList = new ArrayList<Quad>();
       symbolTable = new ArrayList<Symbol>();
+      basicBlockStarts = new ArrayList<Integer>();
       tempCounter = 1;
       symbolCounter = 1;
       nestingLevel = 0;
@@ -55,22 +57,40 @@ boolean program() :
 	  System.out.println("- QuadList -");
 	  int i = 0;
 	  for (Quad q : quadList)
-	  {		System.out.println(i++ + ") " + q.toString());
+	  {
+		if (i == 0)		{
+		  basicBlockStarts.add(i);		}
+		else if ("jump".equals(q.getOperation()))
+		{
+		  basicBlockStarts.add(Integer.parseInt(q.getDestination()));		}
+		else if ("jeqz".equals(q.getOperation()))
+		{		  basicBlockStarts.add(Integer.parseInt(q.getDestination()));
+		  if (i+1 < quadList.size()-1) basicBlockStarts.add(i+1);		}
+
+		System.out.println(i++ + ") " + q.toString());
 	  }
 
-	  System.out.println("- Stack -");
-	  for (Object o : stack)
-	  {		System.out.println(o);
-	  }
+	  Collections.sort(basicBlockStarts);
 
-	  if (stack.size() == 0)
-	  	System.out.println("empty");
+	  System.out.println("- Basic Block Starts  -");
+	  for (Integer in : basicBlockStarts)
+	  {
+	    System.out.println(in.toString());	  }
 
 	  System.out.println("- Symbol Table -");
 	  for (Symbol s : symbolTable)
 	  {
 	    System.out.println(s.toString());
 	  }
+
+	  System.out.println("- Stack -");
+	  for (Object o : stack)
+	  {
+		System.out.println(o);
+	  }
+
+	  if (stack.size() == 0)
+	  	System.out.println("empty");
 	  
 	  return true;
 	}
