@@ -12,6 +12,11 @@ public class Quad
 		System.out.println("Created new Quad: " + operation + ", " + param1 + ", " + param2 + ", " + destination);
 	}
 	
+	public String getOperation()
+	{
+		return this.operation;
+	}
+	
 	public String getDestination()
 	{
 		return this.destination;
