@@ -24,7 +24,90 @@ public class EG1{
       tempCounter = 1;
       symbolCounter = 1;
       nestingLevel = 0;
-      offset = 0;      System.out.println("Reading from standard input...");      System.out.print("$ > ");      try      {        if (EG1.program())        {          System.out.println("OK.");        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        EG1.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(EG1)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* CHARACTERS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >
+      offset = 0;      System.out.println("Reading from standard input...");      System.out.print("$ > ");      try      {        if (EG1.program())        {
+          System.out.println("\n- Extended QuadList -");
+		  int i = 0;
+		  for (ExtendedQuad q : eQuadList)
+		  {
+			if (i == 0)
+			{
+			  basicBlockStarts.add(i);
+			}
+			else if ("jump".equals(q.getOperator()))
+			{
+			  int next = Integer.parseInt(q.getResult().getName());
+			  if (basicBlockStarts.indexOf(next) == -1)
+		  	  {
+		  	    basicBlockStarts.add(next);
+		  	  }
+			}
+			else if ("jeqz".equals(q.getOperator()))
+			{
+			  int next = Integer.parseInt(q.getResult().getName());
+			  if (basicBlockStarts.indexOf(next) == -1)
+			  {
+			    basicBlockStarts.add(next);
+			  }
+			  if (i+1 < eQuadList.size()-1 && basicBlockStarts.indexOf(i+1) == -1) basicBlockStarts.add(i+1);
+			}
+		    System.out.println(i++ + ") " + q.toString());
+		  }
+	
+		  Collections.sort(basicBlockStarts);
+	
+		  System.out.println("\n- Basic Block Starts  -");
+		  for (Integer in : basicBlockStarts)
+		  {
+		    System.out.println(in.toString());
+		  }
+	
+		  Collections.reverse(basicBlockStarts);
+		  for (int x = 0; x < basicBlockStarts.size()-1; x++)
+		  {
+		    int quadNum = basicBlockStarts.get(x) - 1;
+		    int nextStart = basicBlockStarts.get(x+1);
+		    while (quadNum >= 0 && quadNum >= nextStart)
+		    {
+		      Field b = eQuadList.get(quadNum).getArg1();
+		      Field c = eQuadList.get(quadNum).getArg2();
+		      Field a = eQuadList.get(quadNum).getResult();
+		      if (a.isPtr())
+		      {
+		        a.setNextUse(symbolTable.get(a.getSymbolTablePtr()).getNextUse());
+		        symbolTable.get(a.getSymbolTablePtr()).setNextUse(0);
+		      }
+	
+		      if (b.isPtr())
+		      {
+		      	b.setNextUse(symbolTable.get(b.getSymbolTablePtr()).getNextUse());
+		      	symbolTable.get(b.getSymbolTablePtr()).setNextUse(quadNum);
+		      }
+	
+		      if (c.isPtr())
+		      {
+		      	c.setNextUse(symbolTable.get(c.getSymbolTablePtr()).getNextUse());
+		      	symbolTable.get(c.getSymbolTablePtr()).setNextUse(quadNum);
+		      }
+	
+		      quadNum--;
+		    }
+		    System.out.println("\n- Symbol Table for BB (Quad#" + (quadNum+1) + " to Quad#" + (basicBlockStarts.get(x)-1) + ") -");
+			int ii = 0;
+			for (Symbol s : symbolTable)
+			{
+			  System.out.println(ii++ + ") " + s.toString());
+			  s.setNextUse(-1);
+			}
+		  }
+	
+		  System.out.println("\n- Stack -");
+		  for (Object o : stack)
+		  {
+			System.out.println(o);
+		  }
+	
+		  if (stack.size() == 0)
+		  	System.out.println("empty");          System.out.println("OK.");        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        EG1.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(EG1)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* CHARACTERS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >
 | < MOD : "%" >
 | < NOT : "!" >
 | < EQ : "=" >
@@ -58,86 +141,7 @@ boolean program() :
 {}
 {	< LBRACE > (function())* (statement())* < RBRACE >
 	{
-	  System.out.println("- Extended QuadList -");
-	  int i = 0;
-	  for (ExtendedQuad q : eQuadList)
-	  {
-		if (i == 0)
-		{
-		  basicBlockStarts.add(i);
-		}
-		else if ("jump".equals(q.getOperator()))
-		{
-		  int next = Integer.parseInt(q.getResult().getName());
-		  if (basicBlockStarts.indexOf(next) == -1)
-	  	  {
-	  	    basicBlockStarts.add(next);
-	  	  }
-		}
-		else if ("jeqz".equals(q.getOperator()))
-		{
-		  int next = Integer.parseInt(q.getResult().getName());
-		  if (basicBlockStarts.indexOf(next) == -1)
-		  {
-		    basicBlockStarts.add(next);
-		  }
-		  if (i+1 < eQuadList.size()-1 && basicBlockStarts.indexOf(i+1) == -1) basicBlockStarts.add(i+1);
-		}
-	    System.out.println(i++ + ") " + q.toString());
-	  }
-
-	  Collections.sort(basicBlockStarts);
-
-	  System.out.println("- Basic Block Starts  -");
-	  for (Integer in : basicBlockStarts)
-	  {
-	    System.out.println(in.toString());	  }
-
-	  Collections.reverse(basicBlockStarts);
-	  for (int x = 0; x < basicBlockStarts.size()-1; x++)
-	  {	    int quadNum = basicBlockStarts.get(x) - 1;
-	    while (quadNum >= 0 && quadNum >= basicBlockStarts.get(x+1))
-	    {
-	      Field b = eQuadList.get(quadNum).getArg1();
-	      Field c = eQuadList.get(quadNum).getArg2();
-	      Field a = eQuadList.get(quadNum).getResult();
-	      if (a.isPtr())
-	      {
-	        a.setNextUse(symbolTable.get(a.getSymbolTablePtr()).getNextUse());
-	        symbolTable.get(a.getSymbolTablePtr()).setNextUse(0);
-	      }
-
-	      if (b.isPtr())
-	      {
-	      	b.setNextUse(symbolTable.get(b.getSymbolTablePtr()).getNextUse());
-	      	symbolTable.get(b.getSymbolTablePtr()).setNextUse(quadNum);
-	      }
-
-	      if (c.isPtr())
-	      {
-	      	c.setNextUse(symbolTable.get(c.getSymbolTablePtr()).getNextUse());
-	      	symbolTable.get(c.getSymbolTablePtr()).setNextUse(quadNum);
-	      }
-
-	      quadNum--;
-	    }
-	    System.out.println("- Symbol Table for BB #" + x + " -");
-		int ii = 0;
-		for (Symbol s : symbolTable)
-		{
-		  System.out.println(ii++ + ") " + s.toString());
-		  s.setNextUse(-1);
-		}
-	  }
-
-	  System.out.println("- Stack -");
-	  for (Object o : stack)
-	  {
-		System.out.println(o);
-	  }
-
-	  if (stack.size() == 0)
-	  	System.out.println("empty");
+	  
 	  
 	  return true;
 	}
@@ -147,10 +151,14 @@ void function() :
 {
   Token name;
 }{
-	< FN > name=< ID >
-	{
-	  symbolTable.add(new Symbol(name.image, "MAIN", 0, -1, -1, -1));	}
-	< LPAREN > [ < ID > ] < RPAREN > compound_statement()}
+	try	{		< FN > name=< ID >
+		{
+		  symbolTable.add(new Symbol(name.image, "MAIN", 0, -1, -1, -1));		}
+		< LPAREN > [ < ID > ] < RPAREN > compound_statement()
+	}
+	catch (ParseException e)	{
+	  errorSkipTo(RBRACE);
+	}}
 
 void statement() :
 {
@@ -158,30 +166,39 @@ void statement() :
   Object o, p;
 }
 {
-	compound_statement()
-|	< WHILE >	{
-	  stack.push(eQuadList.size());
-	  contStack.push(eQuadList.size());	}
-	test()	{
-	  o = stack.pop();
-	  stack.push(eQuadList.size());
-	  breakStack.push(eQuadList.size());
-	  eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, -1, -1));	}
-	statement()
+	try	{	  compound_statement()
+	}
+	catch (ParseException e)
 	{
-	  o = stack.pop();
-	  p = stack.pop();
-	  eQuadList.add(new ExtendedQuad("jump", null, null, p.toString(), -1));
-	  int whileJump = eQuadList.size();
-
-	  int x = (int) breakStack.pop();
-	  while (x != -1)
-	  {
-	    ExtendedQuad eq = eQuadList.get(x);
-	    x = Integer.parseInt(eq.getResult().getName());
-	    eq.setResult(new Field(whileJump+""));	  }
-
-	  contStack.pop();	}
+	  errorSkipBlock();
+	}
+|	try	{	  	< WHILE >		{
+		  stack.push(eQuadList.size());
+		  contStack.push(eQuadList.size());		}
+		test()		{
+		  o = stack.pop();
+		  stack.push(eQuadList.size());
+		  breakStack.push(eQuadList.size());
+		  eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, -1, -1));		}
+		statement()
+		{
+		  o = stack.pop();
+		  p = stack.pop();
+		  eQuadList.add(new ExtendedQuad("jump", null, null, p.toString(), -1));
+		  int whileJump = eQuadList.size();
+	
+		  int x = (int) breakStack.pop();
+		  while (x != -1)
+		  {
+		    ExtendedQuad eq = eQuadList.get(x);
+		    x = Integer.parseInt(eq.getResult().getName());
+		    eq.setResult(new Field(whileJump+""));		  }
+	
+		  contStack.pop();		}
+	}
+	catch (ParseException e)
+	{
+	  errorSkipBlock();	}
 |	< IF > test()	{
 	  nextQuad = eQuadList.size();
 	  o = stack.pop();
@@ -500,3 +517,31 @@ void unary_op() :
 	{
 	  stack.push("!");
 	}}
+
+JAVACODE
+void errorSkipTo(int kind)
+{
+  ParseException e = generateParseException();
+  System.out.println(e.toString());
+  System.out.println("Nullifying current statement");
+  Token t;
+  do  {	t = getNextToken();
+  } while  (t.kind != kind);
+}
+
+JAVACODE
+void errorSkipBlock()
+{
+  ParseException e =  generateParseException();
+  System.out.println(e.toString());
+  System.out.println("Nullifying current statement");
+  Token t;
+  int kind = SEMI;
+  do
+  {
+    t = getNextToken();
+    if (t.kind == LBRACE)    {
+      System.out.println("Removing WHILE-block");      kind = RBRACE;
+    }
+  } while(t.kind != kind);
+}
