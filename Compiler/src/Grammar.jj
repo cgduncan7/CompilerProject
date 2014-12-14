@@ -1,20 +1,23 @@
 /**
  * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
  */options{  JDK_VERSION = "1.5";  static = true;
-//  debug_parser = true;}PARSER_BEGIN(EG1)
+  //debug_parser = true;}PARSER_BEGIN(EG1)
 import java.util.*;
 
 public class EG1{
   static int tempCounter, symbolCounter, nestingLevel, offset;
-  private static VerboseStack stack, breakStack, contStack;
-  private static ArrayList<Quad> quadList;
-  private static ArrayList<Symbol> symbolTable;
+  private static VerboseStack stack, breakStack, contStack, offsetStack, blockStack;
+  private static ArrayList<ExtendedQuad> eQuadList;
+  static ArrayList<Symbol> symbolTable;
   private static ArrayList<Integer> basicBlockStarts;
     public static void main(String args []) throws ParseException  {    EG1 parser = new EG1(System.in);    while (true)    {
       stack = new VerboseStack();
       breakStack = new VerboseStack();
+      blockStack = new VerboseStack();
+      blockStack.push("block0");
+      offsetStack = new VerboseStack();
       contStack = new VerboseStack();
-      quadList = new ArrayList<Quad>();
+      eQuadList = new ArrayList<ExtendedQuad>();
       symbolTable = new ArrayList<Symbol>();
       basicBlockStarts = new ArrayList<Integer>();
       tempCounter = 1;
@@ -54,20 +57,34 @@ boolean program() :
 {}
 {	< LBRACE > (function())* (statement())* < RBRACE >
 	{
-	  System.out.println("- QuadList -");
+	  System.out.println("- Extended QuadList -");
 	  int i = 0;
-	  for (Quad q : quadList)
+	  for (ExtendedQuad q : eQuadList)
 	  {
-		if (i == 0)		{
-		  basicBlockStarts.add(i);		}
-		else if ("jump".equals(q.getOperation()))
+		if (i == 0)
 		{
-		  basicBlockStarts.add(Integer.parseInt(q.getDestination()));		}
-		else if ("jeqz".equals(q.getOperation()))
-		{		  basicBlockStarts.add(Integer.parseInt(q.getDestination()));
-		  if (i+1 < quadList.size()-1) basicBlockStarts.add(i+1);		}
-
-		System.out.println(i++ + ") " + q.toString());
+		  basicBlockStarts.add(i);
+		}
+		else if ("jump".equals(q.getOperator()))
+		{
+		  int next = Integer.parseInt(q.getResult().getName());
+		  if (basicBlockStarts.indexOf(next) == -1)
+	  	  {
+	  	    basicBlockStarts.add(next);
+	  	  }
+		  	
+		}
+		else if ("jeqz".equals(q.getOperator()))
+		{
+		  int next = Integer.parseInt(q.getResult().getName());
+		  if (basicBlockStarts.indexOf(next) == -1)
+		  {
+		    basicBlockStarts.add(next);
+		  }
+		  if (i+1 < eQuadList.size()-1 && basicBlockStarts.indexOf(i+1) == -1) basicBlockStarts.add(i+1);
+		}
+	    
+	    System.out.println(i++ + ") " + q.toString());
 	  }
 
 	  Collections.sort(basicBlockStarts);
@@ -77,10 +94,12 @@ boolean program() :
 	  {
 	    System.out.println(in.toString());	  }
 
+	  
 	  System.out.println("- Symbol Table -");
+	  i = 0;
 	  for (Symbol s : symbolTable)
 	  {
-	    System.out.println(s.toString());
+	    System.out.println(i++ + ") " + s.toString());
 	  }
 
 	  System.out.println("- Stack -");
@@ -113,43 +132,43 @@ void statement() :
 {
 	compound_statement()
 |	< WHILE >	{
-	  stack.push(quadList.size());
-	  contStack.push(quadList.size());	}
+	  stack.push(eQuadList.size());
+	  contStack.push(eQuadList.size());	}
 	test()	{
 	  o = stack.pop();
-	  stack.push(quadList.size());
-	  breakStack.push(quadList.size());
-	  quadList.add(new Quad("jeqz", o.toString(), null, "-1"));	}
+	  stack.push(eQuadList.size());
+	  breakStack.push(eQuadList.size());
+	  eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, -1, -1));	}
 	statement()
 	{
 	  o = stack.pop();
 	  p = stack.pop();
-	  quadList.add(new Quad("jump", null, null, p.toString()));
-	  int whileJump = quadList.size();
+	  eQuadList.add(new ExtendedQuad("jump", null, null, p.toString(), -1));
+	  int whileJump = eQuadList.size();
 
 	  int x = (int) breakStack.pop();
 	  while (x != -1)
 	  {
-	    Quad q = quadList.get(x);
-	    x = Integer.parseInt(q.getDestination());
-	    q.setDestination(whileJump);	  }
+	    ExtendedQuad eq = eQuadList.get(x);
+	    x = Integer.parseInt(eq.getResult().getName());
+	    eq.setResult(new Field(whileJump+""));	  }
 
 	  contStack.pop();	}
 |	< IF > test()	{
-	  nextQuad = quadList.size();
+	  nextQuad = eQuadList.size();
 	  o = stack.pop();
-	  quadList.add(new Quad("jeqz", o.toString(), null, null));
+	  eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, null, -1));
 	  stack.push(nextQuad);	}
 	statement() [ < ELSE >	{
-	  nextQuad = quadList.size();
-	  quadList.add(new Quad("jump", null, null, null));
+	  nextQuad = eQuadList.size();
+	  eQuadList.add(new ExtendedQuad("jump", null, null, null, -1));
 	  o = stack.pop();
-	  quadList.get((int) o).setDestination((nextQuad+1) + "");
+	  eQuadList.get((int) o).setResult(new Field(""+(nextQuad+1), -1, -1, false));
 	  stack.push(nextQuad);	}
 	statement() ]
 	{
 	  o = stack.pop();
-	  quadList.get((int) o).setDestination(quadList.size() + "");	}
+	  eQuadList.get((int) o).setResult(new Field(eQuadList.size()+"", -1, -1, false));	}
 |	expression() < SEMI >
 	{
 	  Object l = stack.pop(); //clean off leftover stack
@@ -157,27 +176,32 @@ void statement() :
 |	< BREAK > < SEMI >
 	{
 	  Object nq = breakStack.pop();
-	  breakStack.push(quadList.size());
-	  quadList.add(new Quad("jump",null,null,nq.toString()));	}
+	  breakStack.push(eQuadList.size());
+	  eQuadList.add(new ExtendedQuad("jump",null,null,nq.toString(),-1));	}
 |	< RET > expression() < SEMI >
 	{
-	  quadList.add(new Quad("RTS", stack.pop().toString(), null, null));	}
+	  String a = stack.pop().toString();
+	  eQuadList.add(new ExtendedQuad("RTS", a, null, null, -1));	}
 |	< CONT > < SEMI >
 	{
 	  Object loc = contStack.pop();
 	  contStack.push(loc);
-	  quadList.add(new Quad("jump", null, null, loc.toString())); 	}
+	  eQuadList.add(new ExtendedQuad("jump", null, null, loc.toString(), -1));	}
 |	< SEMI >}
 
 void compound_statement() :
 {}
 {
 	< LBRACE >
-	{	  symbolTable.add(new Symbol("symbol"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
+	{
+	  offsetStack.push(offset);	  symbolTable.add(new Symbol("block"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
+	  blockStack.push("block"+(symbolCounter-1));
 	  offset = 0;
 	}
 	statement_list() < RBRACE >
 	{	  nestingLevel--;
+	  offset = (int) offsetStack.pop();
+	  blockStack.pop();
 	}
 }
 
@@ -200,13 +224,24 @@ void expression() :
   	{
   	  stack.push(getToken(0).image);
   	  stack.push(getToken(0).image);
-  	  symbolTable.add(new Symbol(getToken(0).image, "block"+nestingLevel, nestingLevel, offset*4, -1, -1));
-  	  offset++;  	}
+  	  boolean add = true;
+  	  Object block = blockStack.pop();
+  	  blockStack.push(block);
+  	  for (Symbol s : symbolTable)
+  	  {  	    if (s.getName().equals(getToken(0).image) && s.getBlock().equals(block.toString()))
+  	    {  	      add = false;
+  	      break;
+  	    }
+  	  }
+  	  if (add)
+  	  {
+  	    symbolTable.add(new Symbol(getToken(0).image, block.toString(), nestingLevel, offset*4, -1, -1));
+  	  	offset++;  	  }  	}
   	< EQ > expression()
   	{
   	  Object exp = stack.pop();
   	  Object des = stack.pop();
-  	  quadList.add(new Quad("copy", exp.toString(), "", des.toString()));
+  	  eQuadList.add(new ExtendedQuad("copy", exp.toString(), null, des.toString(), -1));
   	}
 |	fn_call()
 }
@@ -223,7 +258,7 @@ void fn_call() :
   	{	  for (Symbol s : symbolTable)
 	  {		if (id.image.equals(s.getName()))
 		{
-		  quadList.add(new Quad("push", id.image, null, "stack"));
+		  eQuadList.add(new ExtendedQuad("push", id.image, null, "stack", -1));
 		  return;		}
 	  }
   	}
@@ -232,7 +267,7 @@ void fn_call() :
 	  {
 		if (fn.image.equals(s.getName()))
 		{
-		  quadList.add(new Quad("jsr", null, null, ""+s.getLocations()));
+		  eQuadList.add(new ExtendedQuad("jsr", null, null, s.getLocations()+"", -1));
 		}
 	  }
   	}
@@ -244,23 +279,23 @@ void condition() :
 {}{	disjunction() [ < QMARK >
 	{
 	  Object o = stack.pop();
-	  int nq1 = quadList.size();
-	  quadList.add(new Quad("jeqz", o.toString(), null, null));
+	  int nq1 = eQuadList.size();
+	  eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, null, -1));
 	  stack.push(nq1);	}
 	expression()
 	{
 	  Object expr = stack.pop();
 	  Object nq = stack.pop();
 	  Object var = stack.pop();
-	  quadList.add(new Quad("copy", expr.toString(), null, var.toString()));
+	  eQuadList.add(new ExtendedQuad("copy", expr.toString(), null, var.toString(), -1));
 	  stack.push(var);
 	  stack.push(nq);	}
 	< COLON >
 	{
-	  int nq2 = quadList.size();
-	  quadList.add(new Quad("jump", null, null, null));
+	  int nq2 = eQuadList.size();
+	  eQuadList.add(new ExtendedQuad("jump", null, null, null, -1));
 	  Object loc = stack.pop();
-	  quadList.get((int) loc).setDestination(quadList.size());
+	  eQuadList.get((int) loc).setResult(new Field(eQuadList.size() + "", -1, -1, false));
 	  stack.push(nq2);	}
 	condition()
 	{
@@ -268,7 +303,7 @@ void condition() :
 	  Object a = stack.pop();
 	  Object c = stack.pop();
 	  //quadList.add(new Quad("copy", b.toString(), null, c.toString()));
-	  quadList.get((int) a).setDestination(quadList.size()+1);
+	  eQuadList.get((int) a).setResult(new Field((eQuadList.size()+1)+"",-1,-1,false));
 	  stack.push(c);
 	  stack.push(b);	}
 	]
@@ -284,7 +319,7 @@ void disjunctionP() :
 	{
 	  Object a = stack.pop();
 	  Object b = stack.pop();
-	  quadList.add(new Quad("|", a.toString(), b.toString(), "temp"+tempCounter));
+	  eQuadList.add(new ExtendedQuad("|", a.toString(), b.toString(), "temp"+tempCounter, -1));
 	  stack.push("temp"+tempCounter++);
 	}
 	disjunctionP() ]}
@@ -300,7 +335,7 @@ void conjunctionP() :
 	{
 	  Object a = stack.pop();
 	  Object b = stack.pop();
-	  quadList.add(new Quad("&", a.toString(), b.toString(), "temp"+tempCounter));
+	  eQuadList.add(new ExtendedQuad("&", a.toString(), b.toString(), "temp"+tempCounter, -1));
 	  stack.push("temp"+tempCounter++);	}
 	conjunctionP() ]}
 void comparison() :
@@ -309,7 +344,7 @@ void comparison() :
 	{
 	  Object a = stack.pop();
 	  Object b = stack.pop();
-	  quadList.add(new Quad("==", a.toString(), b.toString(), "temp"+tempCounter));
+	  eQuadList.add(new ExtendedQuad("==", a.toString(), b.toString(), "temp"+tempCounter, -1));
 	  stack.push("temp"+tempCounter++);
 	}
 	]
@@ -321,9 +356,8 @@ void relation() :
 	  Object s1 = stack.pop();
 	  Object op = stack.pop();
 	  Object s2 = stack.pop();
-	  quadList.add(new Quad(op.toString(), s2.toString(), s1.toString(), "temp"+tempCounter));
-	  stack.push("temp"+tempCounter);
-	  tempCounter++;	}
+	  eQuadList.add(new ExtendedQuad(op.toString(), s2.toString(), s1.toString(), "temp"+tempCounter, -1));
+	  stack.push("temp"+tempCounter++);	}
 	]
 }  
 void sum() :
@@ -339,9 +373,8 @@ void sumP() :
 	  String operation = stack.pop().toString();
 	  Object op2 = stack.pop();
 
-	  quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
-	  stack.push("temp" + tempCounter);
-	  tempCounter++;
+	  eQuadList.add(new ExtendedQuad(operation, op1.toString(), op2.toString(), "temp"+tempCounter, -1));
+	  stack.push("temp" + tempCounter++);
 	}}
 
 void term() :
@@ -357,9 +390,8 @@ void termP() :
 	  String operation = stack.pop().toString();
 	  Object op2 = stack.pop();
 
-	  quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
-	  stack.push("temp"+tempCounter);
-	  tempCounter++;
+	  eQuadList.add(new ExtendedQuad(operation, op1.toString(), op2.toString(), "temp"+tempCounter, -1));
+	  stack.push("temp"+tempCounter++);
 	  
 	}
 }
@@ -374,12 +406,12 @@ void factor() :
 	  Object u = stack.pop();
 	  if ("!".equals(u.toString()))
 	  {
-		quadList.add(new Quad("!", p.toString(), null, "temp"+tempCounter));
+	    eQuadList.add(new ExtendedQuad("!", p.toString(), null, "temp"+tempCounter, -1));
 		stack.push("temp"+tempCounter++);
 	  }
 	  else if ("-".equals(u.toString()))
 	  {
-	    quadList.add(new Quad("u-", p.toString(), null, "temp"+tempCounter));
+	    eQuadList.add(new ExtendedQuad("u-", p.toString(), null, "temp"+tempCounter, -1));
 	    stack.push("temp"+tempCounter++);
 	  }	}
 |	primary()
