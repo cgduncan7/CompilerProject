@@ -6,7 +6,8 @@ import java.util.*;
 
 public class EG1{
   static int tempCounter, symbolCounter, nestingLevel, offset;
-  private static VerboseStack stack, breakStack, contStack, offsetStack, blockStack;
+  private static VerboseStack stack, breakStack, contStack, offsetStack;
+  public static VerboseStack blockStack;
   private static ArrayList<ExtendedQuad> eQuadList;
   static ArrayList<Symbol> symbolTable;
   private static ArrayList<Integer> basicBlockStarts;
@@ -72,7 +73,6 @@ boolean program() :
 	  	  {
 	  	    basicBlockStarts.add(next);
 	  	  }
-		  	
 		}
 		else if ("jeqz".equals(q.getOperator()))
 		{
@@ -83,7 +83,6 @@ boolean program() :
 		  }
 		  if (i+1 < eQuadList.size()-1 && basicBlockStarts.indexOf(i+1) == -1) basicBlockStarts.add(i+1);
 		}
-	    
 	    System.out.println(i++ + ") " + q.toString());
 	  }
 
@@ -94,12 +93,41 @@ boolean program() :
 	  {
 	    System.out.println(in.toString());	  }
 
-	  
-	  System.out.println("- Symbol Table -");
-	  i = 0;
-	  for (Symbol s : symbolTable)
-	  {
-	    System.out.println(i++ + ") " + s.toString());
+	  Collections.reverse(basicBlockStarts);
+	  for (int x = 0; x < basicBlockStarts.size()-1; x++)
+	  {	    int quadNum = basicBlockStarts.get(x) - 1;
+	    while (quadNum >= 0 && quadNum >= basicBlockStarts.get(x+1))
+	    {
+	      Field b = eQuadList.get(quadNum).getArg1();
+	      Field c = eQuadList.get(quadNum).getArg2();
+	      Field a = eQuadList.get(quadNum).getResult();
+	      if (a.isPtr())
+	      {
+	        a.setNextUse(symbolTable.get(a.getSymbolTablePtr()).getNextUse());
+	        symbolTable.get(a.getSymbolTablePtr()).setNextUse(0);
+	      }
+
+	      if (b.isPtr())
+	      {
+	      	b.setNextUse(symbolTable.get(b.getSymbolTablePtr()).getNextUse());
+	      	symbolTable.get(b.getSymbolTablePtr()).setNextUse(quadNum);
+	      }
+
+	      if (c.isPtr())
+	      {
+	      	c.setNextUse(symbolTable.get(c.getSymbolTablePtr()).getNextUse());
+	      	symbolTable.get(c.getSymbolTablePtr()).setNextUse(quadNum);
+	      }
+
+	      quadNum--;
+	    }
+	    System.out.println("- Symbol Table for BB #" + x + " -");
+		int ii = 0;
+		for (Symbol s : symbolTable)
+		{
+		  System.out.println(ii++ + ") " + s.toString());
+		  s.setNextUse(-1);
+		}
 	  }
 
 	  System.out.println("- Stack -");
@@ -194,8 +222,8 @@ void compound_statement() :
 {
 	< LBRACE >
 	{
-	  offsetStack.push(offset);	  symbolTable.add(new Symbol("block"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
-	  blockStack.push("block"+(symbolCounter-1));
+	  offsetStack.push(offset);
+	  blockStack.push("block"+(symbolCounter));	  symbolTable.add(new Symbol("block"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
 	  offset = 0;
 	}
 	statement_list() < RBRACE >
@@ -212,10 +240,7 @@ void statement_list() :
 void test() :
 {}
 {
-	< LPAREN > expression() < RPAREN >
-	{
-
-	}}
+	< LPAREN > expression() < RPAREN >}
 
 void expression() :
 {}{
@@ -225,8 +250,7 @@ void expression() :
   	  stack.push(getToken(0).image);
   	  stack.push(getToken(0).image);
   	  boolean add = true;
-  	  Object block = blockStack.pop();
-  	  blockStack.push(block);
+  	  Object block = blockStack.peek();
   	  for (Symbol s : symbolTable)
   	  {  	    if (s.getName().equals(getToken(0).image) && s.getBlock().equals(block.toString()))
   	    {  	      add = false;
@@ -302,7 +326,6 @@ void condition() :
 	  Object b = stack.pop();
 	  Object a = stack.pop();
 	  Object c = stack.pop();
-	  //quadList.add(new Quad("copy", b.toString(), null, c.toString()));
 	  eQuadList.get((int) a).setResult(new Field((eQuadList.size()+1)+"",-1,-1,false));
 	  stack.push(c);
 	  stack.push(b);	}

@@ -18,7 +18,7 @@ public class Symbol {
 	
 	@Override
 	public String toString() {
-		return this.name + ", " + this.block + ", " + this.nesting + ", " + this.offset + ", " + this.nextUse + ", " + this.locations;
+		return this.name + ", " + this.block + ", " + this.nesting + ", " + this.offset + ", " + this.nextUse;
 	}
 
 	public String getName() {

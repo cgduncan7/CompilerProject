@@ -7,20 +7,27 @@ public class Field
 	
 	public Field(String symbol)
 	{
-		int index = 0;
 		boolean found = false;
-		for (Symbol s : EG1.symbolTable)
+		VerboseStack bs = (VerboseStack) EG1.blockStack.clone();
+		Object o;
+		while (!bs.isEmpty() && !found)
 		{
-			if (s.getBlock().equals("block" + EG1.nestingLevel) && s.getName().equals(symbol))
+			o = bs.pop();
+			int index = 0;
+			for (Symbol s : EG1.symbolTable)
 			{
-				this.symbolTablePtr = index;
-				this.nextUse = -1;
-				this.isPtr = true;
-				this.name = s.getName();
-				found = true;
-				break;
+				if (s.getBlock().equals(o.toString()) && s.getName().equals(symbol))
+				{
+					this.symbolTablePtr = index;
+					this.nextUse = -1;
+					this.isPtr = true;
+					this.name = s.getName();
+					found = true;
+				}
+				if (found) break;
+				index++;
 			}
-			index++;
+			
 		}
 		
 		if (!found)

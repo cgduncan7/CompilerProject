@@ -6,7 +6,7 @@ public class VerboseStack extends Stack
 	public Object pop()
 	{
 		Object e = super.pop();
-		System.out.println("Popped: " + e);
+		//System.out.println("Popped: " + e);
 		return e;
 	}
 	
@@ -14,7 +14,7 @@ public class VerboseStack extends Stack
 	public Object push(Object obj)
 	{
 		super.push(obj);
-		System.out.println("Pushed: " + obj.toString());
+		//System.out.println("Pushed: " + obj.toString());
 		return obj;
 	}
 }

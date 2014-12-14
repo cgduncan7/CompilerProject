@@ -28,7 +28,7 @@ public class ExtendedQuad
 		{
 			this.arg2 = new Field("null",-1,-1,false);
 		}
-		else if (a2 != null && a2 instanceof String)
+		else if (a2 instanceof String)
 		{
 			this.arg2 = new Field(a2.toString());
 		}
@@ -41,7 +41,7 @@ public class ExtendedQuad
 		{
 			this.result = new Field("null",-1,-1,false);
 		}
-		else if (r != null && r instanceof String)
+		else if (r instanceof String)
 		{
 			this.result = new Field(r.toString());
 		}
