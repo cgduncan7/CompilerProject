@@ -2,40 +2,140 @@
 import java.util.*;
 
 public class EG1 implements EG1Constants {
-  static int tempCounter;
-  private static VerboseStack stack, breakStack, contStack;
-  private static ArrayList<Quad> quadList;
+  static boolean genCode = true;
+  static int tempCounter, symbolCounter, nestingLevel, offset;
+  private static Stack stack, breakStack, contStack;
+  public static Stack blockStack;
+  private static ArrayList<ExtendedQuad> eQuadList;
+  static ArrayList<Symbol> symbolTable;
+  private static ArrayList<Integer> basicBlockStarts;
 
   public static void main(String args []) throws ParseException
   {
     EG1 parser = new EG1(System.in);
-    while (true)
+    if (true)
     {
-      stack = new VerboseStack();
-      breakStack = new VerboseStack();
-      contStack = new VerboseStack();
-      quadList = new ArrayList<Quad>();
+      stack = new Stack();
+      breakStack = new Stack();
+      blockStack = new Stack();
+      blockStack.push("block0");
+      contStack = new Stack();
+      eQuadList = new ArrayList<ExtendedQuad>();
+      symbolTable = new ArrayList<Symbol>();
+      basicBlockStarts = new ArrayList<Integer>();
       tempCounter = 1;
+      symbolCounter = 1;
+      nestingLevel = 0;
+      offset = 0;
       System.out.println("Reading from standard input...");
       System.out.print("$ > ");
       try
       {
         if (EG1.program())
         {
-          System.out.println("OK.");
-        }
+          if (genCode)
+          {
+                  //Debug print outs
+                  System.out.println("\u005cn- Extended QuadList -");
+                          int i = 0;
+                          for (ExtendedQuad q : eQuadList)
+                          {
+                                if (i == 0)
+                                {
+                                  basicBlockStarts.add(i);
+                                }
+                                else if ("jump".equals(q.getOperator()))
+                                {
+                                  int next = Integer.parseInt(q.getResult().getName());
+                                  if (basicBlockStarts.indexOf(next) == -1)
+                                  {
+                                    basicBlockStarts.add(next);
+                                  }
+                                }
+                                else if ("jeqz".equals(q.getOperator()))
+                                {
+                                  int next = Integer.parseInt(q.getResult().getName());
+                                  if (basicBlockStarts.indexOf(next) == -1)
+                                  {
+                                    basicBlockStarts.add(next);
+                                  }
+                                  if (i+1 < eQuadList.size()-1 && basicBlockStarts.indexOf(i+1) == -1) basicBlockStarts.add(i+1);
+                                }
+                            System.out.println(i++ + ") " + q.toString());
+                          }
+
+                          Collections.sort(basicBlockStarts);
+
+                          System.out.println("\u005cn- Basic Block Starts  -");
+                          for (Integer in : basicBlockStarts)
+                          {
+                            System.out.println(in.toString());
+                          }
+
+                          Collections.reverse(basicBlockStarts);
+                          for (int x = 0; x < basicBlockStarts.size()-1; x++)
+                          {
+                            int quadNum = basicBlockStarts.get(x) - 1;
+                            int nextStart = basicBlockStarts.get(x+1);
+                            while (quadNum >= 0 && quadNum >= nextStart)
+                            {
+                              Field b = eQuadList.get(quadNum).getArg1();
+                              Field c = eQuadList.get(quadNum).getArg2();
+                              Field a = eQuadList.get(quadNum).getResult();
+                              if (a.isPtr())
+                              {
+                                a.setNextUse(symbolTable.get(a.getSymbolTablePtr()).getNextUse());
+                                symbolTable.get(a.getSymbolTablePtr()).setNextUse(0);
+                              }
+
+                              if (b.isPtr())
+                              {
+                                b.setNextUse(symbolTable.get(b.getSymbolTablePtr()).getNextUse());
+                                symbolTable.get(b.getSymbolTablePtr()).setNextUse(quadNum);
+                              }
+
+                              if (c.isPtr())
+                              {
+                                c.setNextUse(symbolTable.get(c.getSymbolTablePtr()).getNextUse());
+                                symbolTable.get(c.getSymbolTablePtr()).setNextUse(quadNum);
+                              }
+
+                              quadNum--;
+                            }
+                            System.out.println("\u005cn- Symbol Table for BB (Quad#" + (quadNum+1) + " to Quad#" + (basicBlockStarts.get(x)-1) + ") -");
+                                int ii = 0;
+                                for (Symbol s : symbolTable)
+                                {
+                                  System.out.println(ii++ + ") " + s.toString());
+                                  s.setNextUse(-1);
+                                }
+                          }
+
+                          System.out.println("\u005cn- Stack -");
+                          for (Object o : stack)
+                          {
+                                System.out.println(o);
+                          }
+
+                          if (stack.size() == 0)
+                                System.out.println("empty");
+                  System.out.println("OK.");
+                }
+                else
+                {
+                        System.out.println("Errors detected! No code generation!");
+                }
+             }
       }
       catch (Exception e)
       {
         System.out.println("NOK.");
-        System.out.println(e.getMessage());
-        EG1.ReInit(System.in);
+        e.printStackTrace();
       }
       catch (Error e)
       {
         System.out.println("Oops.");
         System.out.println(e.getMessage());
-        break;
       }
     }
   }
@@ -78,64 +178,31 @@ public class EG1 implements EG1Constants {
       statement();
     }
     jj_consume_token(RBRACE);
-          System.out.println("- QuadList -");
-          int i = 0;
-          for (Quad q : quadList)
-          {
-                System.out.println(i++ + ") " + q.toString());
-          }
-
-          System.out.println("- Stack -");
-          for (Object o : stack)
-          {
-                System.out.println(o);
-          }
-
-          if (stack.size() == 0)
-                System.out.println("empty");
-
-          {if (true) return true;}
+            {if (true) return true;}
     throw new Error("Missing return statement in function");
   }
 
   static final public void function() throws ParseException {
-    jj_consume_token(FN);
-    jj_consume_token(ID);
-    jj_consume_token(LPAREN);
-    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-    case ID:
-      jj_consume_token(ID);
-      break;
-    default:
-      jj_la1[2] = jj_gen;
-      ;
-    }
-    jj_consume_token(RPAREN);
-    jj_consume_token(LBRACE);
-    label_3:
-    while (true) {
+  Token name;
+    try {
+      jj_consume_token(FN);
+      name = jj_consume_token(ID);
+                  //Add the main block to the Symbol Table
+                  if (genCode) symbolTable.add(new Symbol(name.image, "MAIN", 0, -1, -1, -1));
+      jj_consume_token(LPAREN);
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case MINUS:
-      case NOT:
-      case LBRACE:
-      case LPAREN:
-      case SEMI:
-      case BREAK:
-      case CONT:
-      case IF:
-      case RET:
-      case WHILE:
-      case INT:
       case ID:
-        ;
+        jj_consume_token(ID);
         break;
       default:
-        jj_la1[3] = jj_gen;
-        break label_3;
+        jj_la1[2] = jj_gen;
+        ;
       }
-      statement();
+      jj_consume_token(RPAREN);
+      compound_statement();
+    } catch (ParseException e) {
+          errorSkipTo(RBRACE);
     }
-    jj_consume_token(RBRACE);
   }
 
   static final public void statement() throws ParseException {
@@ -143,87 +210,171 @@ public class EG1 implements EG1Constants {
   Object o, p;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case LBRACE:
-      compound_statement();
+      try {
+        compound_statement();
+      } catch (ParseException e) {
+          errorSkipBlock();
+      }
       break;
     case WHILE:
-      jj_consume_token(WHILE);
-          stack.push(quadList.size());
-          contStack.push(quadList.size());
-      test();
-          o = stack.pop();
-          stack.push(quadList.size());
-          breakStack.push(quadList.size());
-          quadList.add(new Quad("jeqz", o.toString(), null, "-1"));
-      statement();
-          o = stack.pop();
-          p = stack.pop();
-          quadList.add(new Quad("jump", null, null, p.toString()));
-          int whileJump = quadList.size();
+      try {
+        jj_consume_token(WHILE);
+                  if (genCode)
+                  {
+                    stack.push(offset);
+                        blockStack.push("block"+(symbolCounter));
+                        symbolTable.add(new Symbol("block"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
+                        offset = 0;
+                    stack.push(eQuadList.size());
+                        //Push the current quad to the continue stack to hold the location of the beginning
+                        //of the while
+                        contStack.push(eQuadList.size());
+                  }
+        test();
+                  if (genCode)
+                  {
+                    o = stack.pop();
+                    stack.push(eQuadList.size());
+                        //Push next quad to the break stack for backpatching
+                        breakStack.push(eQuadList.size());
+                        eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, -1, -1));
+                  }
+        statement();
+                  if (genCode)
+                  {
+                          o = stack.pop();
+                          p = stack.pop();
+                          eQuadList.add(new ExtendedQuad("jump", null, null, p.toString(), -1));
+                          int whileJump = eQuadList.size();
 
-          int x = (int) breakStack.pop();
-          while (x != -1)
-          {
-            Quad q = quadList.get(x);
-            x = Integer.parseInt(q.getDestination());
-            q.setDestination(whileJump);
-          }
+                          int x = (int) breakStack.pop();
+                          //Traverse through the quadlist and set the jump location to the quad number
+                          //on the break stack
+                          while (x != -1)
+                          {
+                            ExtendedQuad eq = eQuadList.get(x);
+                            x = Integer.parseInt(eq.getResult().getName());
+                            eq.setResult(new Field(whileJump+""));
+                          }
 
-          contStack.pop();
+                          contStack.pop();
+                          nestingLevel--;
+                          offset = (int) stack.pop();
+                          blockStack.pop();
+                   }
+      } catch (ParseException e) {
+          errorSkipBlock();
+      }
       break;
     case IF:
-      jj_consume_token(IF);
-      test();
-          nextQuad = quadList.size();
-          o = stack.pop();
-          quadList.add(new Quad("jeqz", o.toString(), null, null));
-          stack.push(nextQuad);
-      statement();
-      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case ELSE:
-        jj_consume_token(ELSE);
-          nextQuad = quadList.size();
-          quadList.add(new Quad("jump", null, null, null));
-          o = stack.pop();
-          quadList.get((int) o).setDestination((nextQuad+1) + "");
-          stack.push(nextQuad);
+      try {
+        jj_consume_token(IF);
+                  if (genCode)
+                  {
+                        stack.push(offset);
+                        blockStack.push("block"+(symbolCounter));
+                        symbolTable.add(new Symbol("block"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
+                        offset = 0;
+                  }
+        test();
+                  if (genCode)
+                  {
+                    nextQuad = eQuadList.size();
+                        o = stack.pop();
+                        eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, null, -1));
+                        stack.push(nextQuad);
+                  }
         statement();
-        break;
-      default:
-        jj_la1[4] = jj_gen;
-        ;
+        switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+        case ELSE:
+          jj_consume_token(ELSE);
+                  if (genCode)
+                  {
+                    nextQuad = eQuadList.size();
+                        eQuadList.add(new ExtendedQuad("jump", null, null, null, -1));
+                        o = stack.pop();
+                        eQuadList.get((int) o).setResult(new Field(""+(nextQuad+1), -1, -1, false));
+                        stack.push(nextQuad);
+                  }
+          statement();
+          break;
+        default:
+          jj_la1[3] = jj_gen;
+          ;
+        }
+                  if (genCode)
+                  {
+                    o = stack.pop();
+                    eQuadList.get((int) o).setResult(new Field(eQuadList.size()+"", -1, -1, false));
+                    nestingLevel--;
+                        offset = (int) stack.pop();
+                        blockStack.pop();
+                  }
+      } catch (ParseException e) {
+          errorSkipBlock();
       }
-          o = stack.pop();
-          quadList.get((int) o).setDestination(quadList.size() + "");
       break;
     case MINUS:
     case NOT:
     case LPAREN:
+    case BREAK:
+    case CONT:
+    case RET:
     case INT:
     case ID:
-      expression();
-      jj_consume_token(SEMI);
-          Object l = stack.pop(); //clean off leftover stack
-
-      break;
-    case BREAK:
-      jj_consume_token(BREAK);
-      jj_consume_token(SEMI);
-          Object nq = breakStack.pop();
-          breakStack.push(quadList.size());
-          quadList.add(new Quad("jump",null,null,nq.toString()));
-      break;
-    case RET:
-      jj_consume_token(RET);
-      expression();
-      jj_consume_token(SEMI);
-          quadList.add(new Quad("RTS", stack.pop().toString(), null, null));
-      break;
-    case CONT:
-      jj_consume_token(CONT);
-      jj_consume_token(SEMI);
-          Object loc = contStack.pop();
-          contStack.push(loc);
-          quadList.add(new Quad("jump", null, null, loc.toString()));
+      try {
+        switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+        case MINUS:
+        case NOT:
+        case LPAREN:
+        case INT:
+        case ID:
+          expression();
+          jj_consume_token(SEMI);
+          //clean off leftover stack
+          if (genCode)
+          {
+            Object l = stack.pop();
+          }
+          break;
+        case BREAK:
+          jj_consume_token(BREAK);
+          jj_consume_token(SEMI);
+          if (genCode)
+          {
+            Object nq = breakStack.pop();
+            breakStack.push(eQuadList.size());
+            eQuadList.add(new ExtendedQuad("jump",null,null,nq.toString(),-1));
+          }
+          break;
+        case RET:
+          jj_consume_token(RET);
+          expression();
+          jj_consume_token(SEMI);
+          if (genCode)
+          {
+            String a = stack.pop().toString();
+            eQuadList.add(new ExtendedQuad("RTS", a, null, null, -1));
+          }
+          break;
+        case CONT:
+          jj_consume_token(CONT);
+          jj_consume_token(SEMI);
+          if (genCode)
+          {
+            Object loc = contStack.pop();
+            contStack.push(loc);
+            eQuadList.add(new ExtendedQuad("jump", null, null, loc.toString(), -1));
+          }
+          break;
+        default:
+          jj_la1[4] = jj_gen;
+          jj_consume_token(-1);
+          throw new ParseException();
+        }
+      } catch (ParseException e) {
+        errorSkipTo(SEMI);
+      }
       break;
     case SEMI:
       jj_consume_token(SEMI);
@@ -237,8 +388,24 @@ public class EG1 implements EG1Constants {
 
   static final public void compound_statement() throws ParseException {
     jj_consume_token(LBRACE);
+          if (genCode)
+          {
+                //When a new left brace in encountered we want to increase the block number and nesting level
+                //since this symbolizes the beginning of a new block
+                //stack.push(offset);
+                //blockStack.push("block"+(symbolCounter));
+                //symbolTable.add(new Symbol("block"+symbolCounter++,"block"+nestingLevel,++nestingLevel,-1,-1,-1));
+                //offset = 0;
+          }
     statement_list();
     jj_consume_token(RBRACE);
+          if (genCode)
+          {
+                //When a right brace is encountered, decrease the nesting level
+                //nestingLevel--;
+                //offset = (int) stack.pop();
+                //blockStack.pop();
+          }
   }
 
   static final public void statement_list() throws ParseException {
@@ -265,22 +432,48 @@ public class EG1 implements EG1Constants {
   }
 
   static final public void test() throws ParseException {
-    jj_consume_token(LPAREN);
-    expression();
-    jj_consume_token(RPAREN);
-
+    try {
+      jj_consume_token(LPAREN);
+      expression();
+      jj_consume_token(RPAREN);
+    } catch (ParseException e) {
+        errorSkipBlock();
+    }
   }
 
   static final public void expression() throws ParseException {
     if (jj_2_1(2)) {
       jj_consume_token(ID);
-          stack.push(getToken(0).image);
-          stack.push(getToken(0).image);
+          if (genCode)
+          {
+            //Push the token twice in order to handle multiple assignment statements. Eg: a=b=c=d;
+                stack.push(getToken(0).image);
+                stack.push(getToken(0).image);
+                boolean add = true;
+                Object block = blockStack.peek();
+                for (Symbol s : symbolTable)
+                {
+                  if (s.getName().equals(getToken(0).image) && s.getBlock().equals(block.toString()))
+                  {
+                    //If the symbol table already contains this symbol in the same block, do not re-add it.
+                    add = false;
+                    break;
+                  }
+                }
+                if (add)
+                {
+                  symbolTable.add(new Symbol(getToken(0).image, block.toString(), nestingLevel, offset*4, -1, -1));
+                  offset++;
+                }
+          }
       jj_consume_token(EQ);
       expression();
-          Object exp = stack.pop();
-          Object des = stack.pop();
-          quadList.add(new Quad("copy", exp.toString(), "", des.toString()));
+          if (genCode)
+          {
+            Object exp = stack.pop();
+                Object des = stack.pop();
+                eQuadList.add(new ExtendedQuad("copy", exp.toString(), null, des.toString(), -1));
+          }
     } else {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case MINUS:
@@ -289,7 +482,6 @@ public class EG1 implements EG1Constants {
       case INT:
       case ID:
         fn_call();
-
         break;
       default:
         jj_la1[7] = jj_gen;
@@ -300,34 +492,45 @@ public class EG1 implements EG1Constants {
   }
 
   static final public void fn_call() throws ParseException {
+  Token id, fn;
     condition();
+          fn = getToken(0);
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case LPAREN:
       jj_consume_token(LPAREN);
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-      case INT:
       case ID:
-        switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
-        case ID:
-          jj_consume_token(ID);
-          break;
-        case INT:
-          jj_consume_token(INT);
-          break;
-        default:
-          jj_la1[8] = jj_gen;
-          jj_consume_token(-1);
-          throw new ParseException();
-        }
+        id = jj_consume_token(ID);
+          if (genCode)
+          {
+                  for (Symbol s : symbolTable)
+                  {
+                        if (id.image.equals(s.getName()))
+                        {
+                          eQuadList.add(new ExtendedQuad("push", id.image, null, "stack", -1));
+                          {if (true) return;}
+                        }
+                  }
+          }
         break;
       default:
-        jj_la1[9] = jj_gen;
+        jj_la1[8] = jj_gen;
         ;
       }
       jj_consume_token(RPAREN);
+          if (genCode)
+          {
+                  for (Symbol s : symbolTable)
+                  {
+                        if (fn.image.equals(s.getName()))
+                        {
+                          eQuadList.add(new ExtendedQuad("jsr", null, null, s.getLocations()+"", -1));
+                        }
+                  }
+          }
       break;
     default:
-      jj_la1[10] = jj_gen;
+      jj_la1[9] = jj_gen;
       ;
     }
   }
@@ -337,34 +540,45 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case QMARK:
       jj_consume_token(QMARK);
-          Object o = stack.pop();
-          int nq1 = quadList.size();
-          quadList.add(new Quad("jeqz", o.toString(), null, null));
-          stack.push(nq1);
+          if (genCode)
+          {
+                  Object o = stack.pop();
+                  int nq1 = eQuadList.size();
+                  eQuadList.add(new ExtendedQuad("jeqz", o.toString(), null, null, -1));
+                  stack.push(nq1);
+          }
       expression();
-          Object expr = stack.pop();
-          Object nq = stack.pop();
-          Object var = stack.pop();
-          quadList.add(new Quad("copy", expr.toString(), null, var.toString()));
-          stack.push(var);
-          stack.push(nq);
+          if (genCode)
+          {
+                  Object expr = stack.pop();
+                  Object nq = stack.pop();
+                  Object var = stack.pop();
+                  eQuadList.add(new ExtendedQuad("copy", expr.toString(), null, var.toString(), -1));
+                  stack.push(var);
+                  stack.push(nq);
+          }
       jj_consume_token(COLON);
-          int nq2 = quadList.size();
-          quadList.add(new Quad("jump", null, null, null));
-          Object loc = stack.pop();
-          quadList.get((int) loc).setDestination(quadList.size());
-          stack.push(nq2);
+          if (genCode)
+          {
+                  int nq2 = eQuadList.size();
+                  eQuadList.add(new ExtendedQuad("jump", null, null, null, -1));
+                  Object loc = stack.pop();
+                  eQuadList.get((int) loc).setResult(new Field(eQuadList.size() + "", -1, -1, false));
+                  stack.push(nq2);
+          }
       condition();
-          Object b = stack.pop();
-          Object a = stack.pop();
-          Object c = stack.pop();
-          //quadList.add(new Quad("copy", b.toString(), null, c.toString()));
-          quadList.get((int) a).setDestination(quadList.size()+1);
-          stack.push(c);
-          stack.push(b);
+          if (genCode)
+          {
+            Object b = stack.pop();
+            Object a = stack.pop();
+            Object c = stack.pop();
+            eQuadList.get((int) a).setResult(new Field((eQuadList.size()+1)+"",-1,-1,false));
+            stack.push(c);
+            stack.push(b);
+          }
       break;
     default:
-      jj_la1[11] = jj_gen;
+      jj_la1[10] = jj_gen;
       ;
     }
   }
@@ -379,14 +593,17 @@ public class EG1 implements EG1Constants {
     case OR:
       jj_consume_token(OR);
       conjunction();
-          Object a = stack.pop();
-          Object b = stack.pop();
-          quadList.add(new Quad("|", a.toString(), b.toString(), "temp"+tempCounter));
-          stack.push("temp"+tempCounter++);
+          if (genCode)
+          {
+                  Object a = stack.pop();
+                  Object b = stack.pop();
+                  eQuadList.add(new ExtendedQuad("|", a.toString(), b.toString(), "temp"+tempCounter, -1));
+                  stack.push("temp"+tempCounter++);
+          }
       disjunctionP();
       break;
     default:
-      jj_la1[12] = jj_gen;
+      jj_la1[11] = jj_gen;
       ;
     }
   }
@@ -401,14 +618,17 @@ public class EG1 implements EG1Constants {
     case AND:
       jj_consume_token(AND);
       comparison();
-          Object a = stack.pop();
-          Object b = stack.pop();
-          quadList.add(new Quad("&", a.toString(), b.toString(), "temp"+tempCounter));
-          stack.push("temp"+tempCounter++);
+          if (genCode)
+          {
+            Object a = stack.pop();
+            Object b = stack.pop();
+            eQuadList.add(new ExtendedQuad("&", a.toString(), b.toString(), "temp"+tempCounter, -1));
+            stack.push("temp"+tempCounter++);
+          }
       conjunctionP();
       break;
     default:
-      jj_la1[13] = jj_gen;
+      jj_la1[12] = jj_gen;
       ;
     }
   }
@@ -419,13 +639,16 @@ public class EG1 implements EG1Constants {
     case DEQ:
       jj_consume_token(DEQ);
       relation();
-          Object a = stack.pop();
-          Object b = stack.pop();
-          quadList.add(new Quad("==", a.toString(), b.toString(), "temp"+tempCounter));
-          stack.push("temp"+tempCounter++);
+          if (genCode)
+          {
+            Object a = stack.pop();
+                Object b = stack.pop();
+                eQuadList.add(new ExtendedQuad("==", a.toString(), b.toString(), "temp"+tempCounter, -1));
+                stack.push("temp"+tempCounter++);
+          }
       break;
     default:
-      jj_la1[14] = jj_gen;
+      jj_la1[13] = jj_gen;
       ;
     }
   }
@@ -437,22 +660,24 @@ public class EG1 implements EG1Constants {
     case GT:
       rel_op();
       sum();
-          Object s1 = stack.pop();
-          Object op = stack.pop();
-          Object s2 = stack.pop();
-          quadList.add(new Quad(op.toString(), s2.toString(), s1.toString(), "temp"+tempCounter));
-          stack.push("temp"+tempCounter);
-          tempCounter++;
+          if (genCode)
+          {
+            Object s1 = stack.pop();
+            Object op = stack.pop();
+            Object s2 = stack.pop();
+            eQuadList.add(new ExtendedQuad(op.toString(), s2.toString(), s1.toString(), "temp"+tempCounter, -1));
+            stack.push("temp"+tempCounter++);
+          }
       break;
     default:
-      jj_la1[15] = jj_gen;
+      jj_la1[14] = jj_gen;
       ;
     }
   }
 
   static final public void sum() throws ParseException {
     term();
-    label_4:
+    label_3:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case PLUS:
@@ -460,8 +685,8 @@ public class EG1 implements EG1Constants {
         ;
         break;
       default:
-        jj_la1[16] = jj_gen;
-        break label_4;
+        jj_la1[15] = jj_gen;
+        break label_3;
       }
       sumP();
     }
@@ -470,18 +695,19 @@ public class EG1 implements EG1Constants {
   static final public void sumP() throws ParseException {
     add_op();
     term();
-          Object op1 = stack.pop();
-          String operation = stack.pop().toString();
-          Object op2 = stack.pop();
-
-          quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
-          stack.push("temp" + tempCounter);
-          tempCounter++;
+          if (genCode)
+          {
+                  Object op1 = stack.pop();
+                  String operation = stack.pop().toString();
+                  Object op2 = stack.pop();
+                  eQuadList.add(new ExtendedQuad(operation, op1.toString(), op2.toString(), "temp"+tempCounter, -1));
+                  stack.push("temp" + tempCounter++);
+          }
   }
 
   static final public void term() throws ParseException {
     factor();
-    label_5:
+    label_4:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case MULTIPLY:
@@ -490,8 +716,8 @@ public class EG1 implements EG1Constants {
         ;
         break;
       default:
-        jj_la1[17] = jj_gen;
-        break label_5;
+        jj_la1[16] = jj_gen;
+        break label_4;
       }
       termP();
     }
@@ -500,13 +726,14 @@ public class EG1 implements EG1Constants {
   static final public void termP() throws ParseException {
     mul_op();
     factor();
-          Object op1 = stack.pop();
-          String operation = stack.pop().toString();
-          Object op2 = stack.pop();
-
-          quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
-          stack.push("temp"+tempCounter);
-          tempCounter++;
+          if (genCode)
+          {
+            Object op1 = stack.pop();
+            String operation = stack.pop().toString();
+            Object op2 = stack.pop();
+            eQuadList.add(new ExtendedQuad(operation, op1.toString(), op2.toString(), "temp"+tempCounter, -1));
+            stack.push("temp"+tempCounter++);
+          }
   }
 
   static final public void factor() throws ParseException {
@@ -516,17 +743,20 @@ public class EG1 implements EG1Constants {
     case NOT:
       unary_op();
       primary();
-          Object p = stack.pop();
-          Object u = stack.pop();
-          if ("!".equals(u.toString()))
+          if (genCode)
           {
-                quadList.add(new Quad("!", p.toString(), null, "temp"+tempCounter));
-                stack.push("temp"+tempCounter++);
-          }
-          else if ("-".equals(u.toString()))
-          {
-            quadList.add(new Quad("u-", p.toString(), null, "temp"+tempCounter));
-            stack.push("temp"+tempCounter++);
+                  Object p = stack.pop();
+                  Object u = stack.pop();
+                  if ("!".equals(u.toString()))
+                  {
+                    eQuadList.add(new ExtendedQuad("!", p.toString(), null, "temp"+tempCounter, -1));
+                        stack.push("temp"+tempCounter++);
+                  }
+                  else if ("-".equals(u.toString()))
+                  {
+                    eQuadList.add(new ExtendedQuad("u-", p.toString(), null, "temp"+tempCounter, -1));
+                    stack.push("temp"+tempCounter++);
+                  }
           }
       break;
     case LPAREN:
@@ -535,7 +765,7 @@ public class EG1 implements EG1Constants {
       primary();
       break;
     default:
-      jj_la1[18] = jj_gen;
+      jj_la1[17] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -545,11 +775,11 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case ID:
       jj_consume_token(ID);
-          stack.push(getToken(0).image);
+          if (genCode) { stack.push(getToken(0).image); }
       break;
     case INT:
       jj_consume_token(INT);
-          stack.push(Integer.valueOf(getToken(0).image));
+          if (genCode) { stack.push(Integer.valueOf(getToken(0).image)); }
       break;
     case LPAREN:
       jj_consume_token(LPAREN);
@@ -557,7 +787,7 @@ public class EG1 implements EG1Constants {
       jj_consume_token(RPAREN);
       break;
     default:
-      jj_la1[19] = jj_gen;
+      jj_la1[18] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -567,14 +797,14 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case LT:
       jj_consume_token(LT);
-          stack.push("<");
+          if (genCode) { stack.push("<"); }
       break;
     case GT:
       jj_consume_token(GT);
-          stack.push(">");
+          if (genCode) { stack.push(">"); }
       break;
     default:
-      jj_la1[20] = jj_gen;
+      jj_la1[19] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -584,18 +814,18 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case MULTIPLY:
       jj_consume_token(MULTIPLY);
-          stack.push("*");
+          if (genCode) { stack.push("*"); }
       break;
     case DIVIDE:
       jj_consume_token(DIVIDE);
-          stack.push("/");
+          if (genCode) { stack.push("/"); }
       break;
     case MOD:
       jj_consume_token(MOD);
-          stack.push("%");
+          if (genCode) { stack.push("%"); }
       break;
     default:
-      jj_la1[21] = jj_gen;
+      jj_la1[20] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -605,14 +835,14 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case PLUS:
       jj_consume_token(PLUS);
-          stack.push("+");
+          if (genCode) { stack.push("+"); }
       break;
     case MINUS:
       jj_consume_token(MINUS);
-          stack.push("-");
+          if (genCode) { stack.push("-"); }
       break;
     default:
-      jj_la1[22] = jj_gen;
+      jj_la1[21] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -622,17 +852,47 @@ public class EG1 implements EG1Constants {
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case MINUS:
       jj_consume_token(MINUS);
-          stack.push("-");
+          if (genCode) { stack.push("-"); }
       break;
     case NOT:
       jj_consume_token(NOT);
-          stack.push("!");
+          if (genCode) { stack.push("!"); }
       break;
     default:
-      jj_la1[23] = jj_gen;
+      jj_la1[22] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
+  }
+
+  static void errorSkipTo(int kind) throws ParseException {
+  genCode = false;
+  ParseException e = generateParseException();
+  System.out.println(e.toString());
+  System.out.println("Incorrect syntax detected. Ignoring statement.");
+  Token t;
+  do
+  {
+        t = getNextToken();
+  } while  (t.kind != kind && t != null);
+  }
+
+  static void errorSkipBlock() throws ParseException {
+  int cLevel = nestingLevel;
+  genCode = false;
+  ParseException e =  generateParseException();
+  System.out.println(e.toString());
+  System.out.println("Incorrect syntax detected. Encapsulated code block has been removed.");
+  Token t;
+  int kind = SEMI;
+  do
+  {
+    t = getNextToken();
+    if (t.kind == LBRACE)
+    {
+      kind = RBRACE;
+    }
+  } while(t.kind != kind && t != null);
   }
 
   static private boolean jj_2_1(int xla) {
@@ -660,7 +920,7 @@ public class EG1 implements EG1Constants {
   static private Token jj_scanpos, jj_lastpos;
   static private int jj_la;
   static private int jj_gen;
-  static final private int[] jj_la1 = new int[24];
+  static final private int[] jj_la1 = new int[23];
   static private int[] jj_la1_0;
   static private int[] jj_la1_1;
   static {
@@ -668,10 +928,10 @@ public class EG1 implements EG1Constants {
       jj_la1_init_1();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0x40000000,0x3b80a440,0x0,0x3b80a440,0x4000000,0x3b80a440,0x3b80a440,0x8440,0x0,0x0,0x8000,0x80000,0x100000,0x200000,0x1000,0x60000,0x60,0x380,0x8440,0x8000,0x60000,0x380,0x60,0x440,};
+      jj_la1_0 = new int[] {0x40000000,0x3b80a440,0x0,0x4000000,0x13008440,0x3b80a440,0x3b80a440,0x8440,0x0,0x8000,0x80000,0x100000,0x200000,0x1000,0x60000,0x60,0x380,0x8440,0x8000,0x60000,0x380,0x60,0x440,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0x0,0x6,0x4,0x6,0x0,0x6,0x6,0x6,0x6,0x6,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x6,0x6,0x0,0x0,0x0,0x0,};
+      jj_la1_1 = new int[] {0x0,0x6,0x4,0x0,0x6,0x6,0x6,0x6,0x4,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x6,0x6,0x0,0x0,0x0,0x0,};
    }
   static final private JJCalls[] jj_2_rtns = new JJCalls[1];
   static private boolean jj_rescan = false;
@@ -695,7 +955,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 23; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -710,7 +970,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 23; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -728,7 +988,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 23; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -739,7 +999,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 23; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -756,7 +1016,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 23; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -766,7 +1026,7 @@ public class EG1 implements EG1Constants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 24; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 23; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -883,7 +1143,7 @@ public class EG1 implements EG1Constants {
       la1tokens[jj_kind] = true;
       jj_kind = -1;
     }
-    for (int i = 0; i < 24; i++) {
+    for (int i = 0; i < 23; i++) {
       if (jj_la1[i] == jj_gen) {
         for (int j = 0; j < 32; j++) {
           if ((jj_la1_0[i] & (1<<j)) != 0) {
