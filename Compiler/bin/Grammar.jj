@@ -1,382 +1,0 @@
-/**
- * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
- */options{  JDK_VERSION = "1.5";  static = true;
-  //debug_parser = true;}PARSER_BEGIN(EG1)
-import java.util.*;
-
-public class EG1{
-  static int tempCounter;
-  private static VerboseStack stack, breakStack, contStack;
-  private static ArrayList<Quad> quadList;
-    public static void main(String args []) throws ParseException  {    EG1 parser = new EG1(System.in);    while (true)    {
-      stack = new VerboseStack();
-      breakStack = new VerboseStack();
-      contStack = new VerboseStack();
-      quadList = new ArrayList<Quad>();
-      tempCounter = 1;      System.out.println("Reading from standard input...");      System.out.print("$ > ");      try      {        if (EG1.program())        {          System.out.println("OK.");        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        EG1.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(EG1)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* CHARACTERS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >
-| < MOD : "%" >
-| < NOT : "!" >
-| < EQ : "=" >
-| < DEQ : "==" >
-| < LBRACE : "{" >
-| < RBRACE : "}" >
-| < LPAREN : "(" >
-| < RPAREN : ")" >
-| < LT : "<" >
-| < GT : ">" >
-| < QMARK : "?" >
-| < OR : "|" >
-| < AND : "&" >
-| < COLON : ":" >
-| < SEMI : ";" >}
-
-TOKEN : /* RESERVED WORDS */
-{  < BREAK : "break" >
-| < CONT : "continue" >
-| < ELSE : "else" >
-| < IF : "if" >
-| < RET : "return" >
-| < WHILE : "while" >
-| < FN : "function" >
-}TOKEN :{
-  < #LETTER : ["A"-"z"] >
-| < #DIGIT : [ "0"-"9" ] >
-| < INT : (< DIGIT >)+ > 
-| < ID : < LETTER >(< LETTER > | < DIGIT >)* >}
-boolean program() :
-{}
-{	< LBRACE > (function())* (statement())* < RBRACE >
-	{
-	  System.out.println("- QuadList -");
-	  int i = 0;
-	  for (Quad q : quadList)
-	  {		System.out.println(i++ + ") " + q.toString());
-	  }
-
-	  System.out.println("- Stack -");
-	  for (Object o : stack)
-	  {		System.out.println(o);
-	  }
-
-	  if (stack.size() == 0)
-	  	System.out.println("empty");
-	  
-	  return true;
-	}
-}
-
-void function() :
-{}{
-	< FN > < ID > < LPAREN > [ < ID > ] < RPAREN > < LBRACE > ( statement() )* < RBRACE >}
-
-void statement() :
-{
-  int nextQuad;
-  Object o, p;
-}
-{
-	compound_statement()
-|	< WHILE >	{
-	  stack.push(quadList.size());
-	  contStack.push(quadList.size());	}
-	test()	{
-	  o = stack.pop();
-	  stack.push(quadList.size());
-	  breakStack.push(quadList.size());
-	  quadList.add(new Quad("jeqz", o.toString(), null, "-1"));	}
-	statement()
-	{
-	  o = stack.pop();
-	  p = stack.pop();
-	  quadList.add(new Quad("jump", null, null, p.toString()));
-	  int whileJump = quadList.size();
-
-	  int x = (int) breakStack.pop();
-	  while (x != -1)
-	  {
-	    Quad q = quadList.get(x);
-	    x = Integer.parseInt(q.getDestination());
-	    q.setDestination(whileJump);	  }
-
-	  contStack.pop();	}
-|	< IF > test()	{
-	  nextQuad = quadList.size();
-	  o = stack.pop();
-	  quadList.add(new Quad("jeqz", o.toString(), null, null));
-	  stack.push(nextQuad);	}
-	statement() [ < ELSE >	{
-	  nextQuad = quadList.size();
-	  quadList.add(new Quad("jump", null, null, null));
-	  o = stack.pop();
-	  quadList.get((int) o).setDestination((nextQuad+1) + "");
-	  stack.push(nextQuad);	}
-	statement() ]
-	{
-	  o = stack.pop();
-	  quadList.get((int) o).setDestination(quadList.size() + "");	}
-|	expression() < SEMI >
-	{
-	  Object l = stack.pop(); //clean off leftover stack
-	}
-|	< BREAK > < SEMI >
-	{
-	  Object nq = breakStack.pop();
-	  breakStack.push(quadList.size());
-	  quadList.add(new Quad("jump",null,null,nq.toString()));	}
-|	< RET > expression() < SEMI >
-	{
-	  quadList.add(new Quad("RTS", stack.pop().toString(), null, null));	}
-|	< CONT > < SEMI >
-	{
-	  Object loc = contStack.pop();
-	  contStack.push(loc);
-	  quadList.add(new Quad("jump", null, null, loc.toString())); 	}
-|	< SEMI >}
-
-void compound_statement() :
-{}
-{
-	< LBRACE > statement_list() < RBRACE >
-}
-
-void statement_list() :
-{}{
-	statement() [ statement_list() ]}
-
-void test() :
-{}
-{
-	< LPAREN > expression() < RPAREN >
-	{
-
-	}}
-
-void expression() :
-{}{
-  	LOOKAHEAD(2)
-  	< ID >
-  	{
-  	  stack.push(getToken(0).image);
-  	  stack.push(getToken(0).image);  	}
-  	< EQ > expression()
-  	{
-  	  Object exp = stack.pop();
-  	  Object des = stack.pop();
-  	  quadList.add(new Quad("copy", exp.toString(), "", des.toString()));
-  	}
-|	fn_call()
-	{
-	  	}
-}
-
-void fn_call() :
-{}
-{
-  	condition() [ < LPAREN > [ < ID > | < INT > ] < RPAREN > ]
-}
-
-void condition() :
-{}{	disjunction() [ < QMARK >
-	{
-	  Object o = stack.pop();
-	  int nq1 = quadList.size();
-	  quadList.add(new Quad("jeqz", o.toString(), null, null));
-	  stack.push(nq1);	}
-	expression()
-	{
-	  Object expr = stack.pop();
-	  Object nq = stack.pop();
-	  Object var = stack.pop();
-	  quadList.add(new Quad("copy", expr.toString(), null, var.toString()));
-	  stack.push(var);
-	  stack.push(nq);	}
-	< COLON >
-	{
-	  int nq2 = quadList.size();
-	  quadList.add(new Quad("jump", null, null, null));
-	  Object loc = stack.pop();
-	  quadList.get((int) loc).setDestination(quadList.size());
-	  stack.push(nq2);	}
-	condition()
-	{
-	  Object b = stack.pop();
-	  Object a = stack.pop();
-	  Object c = stack.pop();
-	  //quadList.add(new Quad("copy", b.toString(), null, c.toString()));
-	  quadList.get((int) a).setDestination(quadList.size()+1);
-	  stack.push(c);
-	  stack.push(b);	}
-	]
-}
-
-void disjunction() :
-{}{
-  	conjunction() disjunctionP()}
-
-void disjunctionP() :
-{}{
-	[ < OR > conjunction()
-	{
-	  Object a = stack.pop();
-	  Object b = stack.pop();
-	  quadList.add(new Quad("|", a.toString(), b.toString(), "temp"+tempCounter));
-	  stack.push("temp"+tempCounter++);
-	}
-	disjunctionP() ]}
-
-void conjunction() :
-{}
-{
-	comparison() conjunctionP()}
-
-void conjunctionP() :
-{}{
-	[ < AND > comparison()
-	{
-	  Object a = stack.pop();
-	  Object b = stack.pop();
-	  quadList.add(new Quad("&", a.toString(), b.toString(), "temp"+tempCounter));
-	  stack.push("temp"+tempCounter++);	}
-	conjunctionP() ]}
-void comparison() :
-{}
-{	relation() [ < DEQ > relation()
-	{
-	  Object a = stack.pop();
-	  Object b = stack.pop();
-	  quadList.add(new Quad("==", a.toString(), b.toString(), "temp"+tempCounter));
-	  stack.push("temp"+tempCounter++);
-	}
-	]
-}
-
-void relation() :
-{}{	sum() [ rel_op() sum()
-	{
-	  Object s1 = stack.pop();
-	  Object op = stack.pop();
-	  Object s2 = stack.pop();
-	  quadList.add(new Quad(op.toString(), s2.toString(), s1.toString(), "temp"+tempCounter));
-	  stack.push("temp"+tempCounter);
-	  tempCounter++;	}
-	]
-}  
-void sum() :
-{}{
-	term() (sumP())*
-}
-
-void sumP() :
-{}{
-	add_op() term()
-	{
-	  Object op1 = stack.pop();
-	  String operation = stack.pop().toString();
-	  Object op2 = stack.pop();
-
-	  quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
-	  stack.push("temp" + tempCounter);
-	  tempCounter++;
-	}}
-
-void term() :
-{}
-{	factor() (termP())*
-}
-
-void termP() :
-{}
-{	mul_op() factor()
-	{
-	  Object op1 = stack.pop();
-	  String operation = stack.pop().toString();
-	  Object op2 = stack.pop();
-
-	  quadList.add(new Quad(operation, op1.toString(), op2.toString(), "temp" + tempCounter));
-	  stack.push("temp"+tempCounter);
-	  tempCounter++;
-	  
-	}
-}
-
-void factor() :
-{
-  Object op = null;
-}
-{	unary_op() primary()
-	{
-	  Object p = stack.pop();
-	  Object u = stack.pop();
-	  if ("!".equals(u.toString()))
-	  {
-		quadList.add(new Quad("!", p.toString(), null, "temp"+tempCounter));
-		stack.push("temp"+tempCounter++);
-	  }
-	  else if ("-".equals(u.toString()))
-	  {
-	    quadList.add(new Quad("u-", p.toString(), null, "temp"+tempCounter));
-	    stack.push("temp"+tempCounter++);
-	  }	}
-|	primary()
-}
-
-void primary() :
-{}
-{	< ID >
-	{
-	  stack.push(getToken(0).image);
-	}
-|	< INT >
-	{
-	  stack.push(Integer.valueOf(getToken(0).image));
-	}
-| 	< LPAREN > expression() < RPAREN >
-}
-
-void rel_op() :
-{}{
-	< LT >
-	{
-	  stack.push("<");
-	}
-| 	< GT >
-	{
-	  stack.push(">");
-	}}
-
-void mul_op() :
-{}{
-	< MULTIPLY >
-	{
-	  stack.push("*");
-	}
-| 	< DIVIDE >
-	{
-	  stack.push("/");
-	}
-| 	< MOD >
-	{
-	  stack.push("%");
-	}}
-
-void add_op() :
-{}{
-	< PLUS >
-	{
-	  stack.push("+");
-	}
-|	< MINUS >
-	{
-	  stack.push("-");
-	}}
-
-void unary_op() :
-{}{
-	< MINUS >
-	{
-	  stack.push("-");
-	}
-|	< NOT >
-	{
-	  stack.push("!");
-	}}
