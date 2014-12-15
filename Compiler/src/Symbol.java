@@ -1,4 +1,12 @@
 
+/*
+ * This object represents a symbol in the Symbol Table
+ */
+/**
+ * 
+ * @author Collin Duncan and Blake LaFleur
+ *
+ */
 public class Symbol {
 	private String name;
 	private String block;
